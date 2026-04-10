@@ -7,17 +7,20 @@ import { Card, CardContent } from "@/components/ui/card";
 import { useGetSubscriptionStatus, useInitiateSubscription, useVerifyPayment } from "@workspace/api-client-react";
 import { getApiErrorMessage } from "@/lib/api-error";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Check, ArrowLeft, Smartphone, ShieldCheck, Info } from "lucide-react";
+import { Loader2, Check, ArrowLeft, Smartphone, ShieldCheck, Info, RefreshCw } from "lucide-react";
 import { useEffect, useState, useRef } from "react";
+
+const POLL_INTERVAL_MS = 4000;   // match nusawards — lightweight DB check every 4s
+const MAX_POLL_ATTEMPTS = 15;    // 15 × 4s = 60s before "taking longer" message
 
 export default function Subscribe() {
   const { user, isLoading: userLoading } = useAuth();
   const [_, setLocation] = useLocation();
   const { toast } = useToast();
 
-  const { data: subStatus, isLoading: subLoading } = useGetSubscriptionStatus();
+  const { data: subStatus, isLoading: subLoading, refetch: refetchStatus } = useGetSubscriptionStatus();
   const subscribeMutation = useInitiateSubscription();
-  const verifyMutation = useVerifyPayment();
+  const verifyMutation = useVerifyPayment();   // hits Paylor API — only on user request
 
   const [payPhone, setPayPhone] = useState("");
   const [phoneEdited, setPhoneEdited] = useState(false);
@@ -26,6 +29,7 @@ export default function Subscribe() {
   const [secondsElapsed, setSecondsElapsed] = useState(0);
   const [timedOut, setTimedOut] = useState(false);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const attemptsRef = useRef(0);
 
   useEffect(() => {
     if (!userLoading && !user) {
@@ -45,30 +49,67 @@ export default function Subscribe() {
     return () => clearInterval(t);
   }, [stkSent]);
 
-  // Poll DB every 2 seconds — redirect the moment payment is confirmed
+  // After STK push: poll the DB-only status endpoint every 4 seconds.
+  // This is lightweight — no external API calls, relies on the Paylor webhook to update the DB.
+  // The user can also manually trigger a Paylor API check via the "I've Paid" button.
   useEffect(() => {
     if (!stkSent) return;
     setTimedOut(false);
-    const start = Date.now();
-    const TIMEOUT = 3 * 60 * 1000; // 3 minutes
-    pollRef.current = setInterval(() => {
-      if (Date.now() - start >= TIMEOUT) {
+    attemptsRef.current = 0;
+
+    pollRef.current = setInterval(async () => {
+      attemptsRef.current += 1;
+
+      if (attemptsRef.current > MAX_POLL_ATTEMPTS) {
         clearInterval(pollRef.current!);
         setTimedOut(true);
         return;
       }
-      verifyMutation.mutate(undefined, {
-        onSuccess: (data) => {
-          if (data.isActive) {
-            clearInterval(pollRef.current!);
-            toast({ title: "🎉 Payment confirmed!", description: "Your Pro subscription is now active." });
-            setLocation("/");
-          }
-        },
-      });
-    }, 5000);
+
+      const result = await refetchStatus();
+      if (result.data?.isActive) {
+        clearInterval(pollRef.current!);
+        toast({ title: "Payment confirmed!", description: "Your Pro subscription is now active." });
+        setLocation("/");
+      }
+    }, POLL_INTERVAL_MS);
+
     return () => { if (pollRef.current) clearInterval(pollRef.current); };
   }, [stkSent]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // If already active at any point, clear the poll and redirect
+  useEffect(() => {
+    if (subStatus?.isActive && stkSent) {
+      if (pollRef.current) clearInterval(pollRef.current);
+      toast({ title: "Payment confirmed!", description: "Your Pro subscription is now active." });
+      setLocation("/");
+    }
+  }, [subStatus?.isActive, stkSent]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleManualCheck = () => {
+    // Calls Paylor API directly to check transaction status — use sparingly
+    verifyMutation.mutate(undefined, {
+      onSuccess: (data) => {
+        if (data.isActive) {
+          if (pollRef.current) clearInterval(pollRef.current);
+          toast({ title: "Payment confirmed!", description: "Your Pro subscription is now active." });
+          setLocation("/");
+        } else {
+          toast({
+            title: "Not confirmed yet",
+            description: "Payment is still pending. If you entered your PIN, please wait a moment and try again.",
+          });
+        }
+      },
+      onError: (error: unknown) => {
+        toast({
+          variant: "destructive",
+          title: "Check failed",
+          description: getApiErrorMessage(error, "Could not verify payment. Please try again."),
+        });
+      },
+    });
+  };
 
   if (userLoading || subLoading) {
     return (
@@ -102,7 +143,7 @@ export default function Subscribe() {
           <CardContent className="pt-10 pb-10 space-y-6">
 
             {timedOut ? (
-              /* Timed out — show support fallback */
+              /* Timed out — let them manually verify or retry */
               <>
                 <div className="w-16 h-16 rounded-full bg-amber-400/10 flex items-center justify-center mx-auto">
                   <Smartphone className="w-8 h-8 text-amber-400" />
@@ -110,18 +151,29 @@ export default function Subscribe() {
                 <div className="space-y-2">
                   <h2 className="text-xl font-bold">Taking longer than usual</h2>
                   <p className="text-muted-foreground text-sm">
-                    If you completed the M-Pesa payment, please contact support and we'll activate your account.
+                    If you completed the M-Pesa payment, tap below to check. Otherwise contact support.
                   </p>
                   <a href="mailto:nutterxtech@gmail.com" className="text-primary text-sm font-semibold hover:underline block mt-2">
                     nutterxtech@gmail.com
                   </a>
                 </div>
+                <Button
+                  className="w-full"
+                  onClick={handleManualCheck}
+                  disabled={verifyMutation.isPending}
+                  data-testid="button-check-payment"
+                >
+                  {verifyMutation.isPending
+                    ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Checking…</>
+                    : <><RefreshCw className="w-4 h-4 mr-2" /> I've Paid — Check Now</>
+                  }
+                </Button>
                 <Button variant="outline" className="w-full" onClick={() => { setStkSent(false); setTimedOut(false); }}>
                   Try Again
                 </Button>
               </>
             ) : (
-              /* Waiting — spinner only */
+              /* Waiting — spinner + manual check button */
               <>
                 <div className="relative w-20 h-20 mx-auto">
                   <div className="absolute inset-0 rounded-full bg-primary/10 animate-ping" />
@@ -141,6 +193,20 @@ export default function Subscribe() {
                 <p className="text-xs text-muted-foreground tabular-nums">
                   {secondsElapsed}s elapsed
                 </p>
+
+                {/* Manual check — calls Paylor API directly */}
+                <Button
+                  variant="outline"
+                  className="w-full border-primary/30 text-primary hover:bg-primary/10"
+                  onClick={handleManualCheck}
+                  disabled={verifyMutation.isPending}
+                  data-testid="button-check-payment"
+                >
+                  {verifyMutation.isPending
+                    ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Checking…</>
+                    : <><RefreshCw className="w-4 h-4 mr-2" /> I've Paid — Check Now</>
+                  }
+                </Button>
 
                 <Button
                   variant="ghost"
