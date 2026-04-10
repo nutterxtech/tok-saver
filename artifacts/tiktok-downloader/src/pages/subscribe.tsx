@@ -1,33 +1,45 @@
 import { useAuth } from "@/hooks/use-auth";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { useGetSubscriptionStatus, useInitiateSubscription } from "@workspace/api-client-react";
 import { getApiErrorMessage } from "@/lib/api-error";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Check } from "lucide-react";
-import { useEffect } from "react";
+import { Loader2, Check, ArrowLeft, Smartphone, ShieldCheck, Info } from "lucide-react";
+import { useEffect, useState } from "react";
 
 export default function Subscribe() {
   const { user, isLoading: userLoading } = useAuth();
   const [_, setLocation] = useLocation();
   const { toast } = useToast();
-  
+
   const { data: subStatus, isLoading: subLoading } = useGetSubscriptionStatus();
   const subscribeMutation = useInitiateSubscription();
 
+  const [payPhone, setPayPhone] = useState("");
+  const [phoneEdited, setPhoneEdited] = useState(false);
+
   useEffect(() => {
     if (!userLoading && !user) {
-      toast({
-        title: "Authentication required",
-        description: "Please login to subscribe",
-      });
+      toast({ title: "Authentication required", description: "Please login to subscribe" });
       setLocation("/login");
     }
   }, [user, userLoading, setLocation, toast]);
 
+  useEffect(() => {
+    if (user?.phone && !phoneEdited) {
+      setPayPhone(user.phone);
+    }
+  }, [user?.phone, phoneEdited]);
+
   if (userLoading || subLoading) {
-    return <div className="flex justify-center items-center flex-1"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>;
+    return (
+      <div className="flex justify-center items-center flex-1">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
   }
 
   if (subStatus?.isActive) {
@@ -47,77 +59,123 @@ export default function Subscribe() {
     );
   }
 
-  const handleSubscribe = () => {
-    subscribeMutation.mutate(undefined, {
-      onSuccess: (data) => {
-        window.location.href = data.paymentUrl;
-      },
-      onError: (error: unknown) => {
-        toast({
-          variant: "destructive",
-          title: "Payment initiation failed",
-          description: getApiErrorMessage(error, "Could not start payment process."),
-        });
-      }
-    });
-  };
-
   const price = subStatus?.subscriptionPrice || 49;
-  const currency = subStatus?.currency || "KSH";
+  const currency = subStatus?.currency || "KES";
+
+  const handleSubscribe = () => {
+    subscribeMutation.mutate(
+      { data: { phone: payPhone || undefined } },
+      {
+        onSuccess: (data) => {
+          window.location.href = data.paymentUrl;
+        },
+        onError: (error: unknown) => {
+          toast({
+            variant: "destructive",
+            title: "Payment initiation failed",
+            description: getApiErrorMessage(error, "Could not start payment process."),
+          });
+        },
+      }
+    );
+  };
 
   return (
     <div className="flex-1 flex items-center justify-center p-4 py-12">
-      <Card className="w-full max-w-lg shadow-2xl border-primary/20 relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-32 h-32 bg-primary/10 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none" />
-        <div className="absolute bottom-0 left-0 w-40 h-40 bg-primary/10 rounded-full blur-3xl -ml-20 -mb-20 pointer-events-none" />
-        
-        <CardHeader className="text-center space-y-2 pt-10">
-          <CardTitle className="text-4xl font-extrabold tracking-tight">Unlock Unlimited</CardTitle>
-          <CardDescription className="text-lg">Get full access to all features</CardDescription>
-        </CardHeader>
-        
-        <CardContent className="space-y-8 pt-4">
-          <div className="text-center">
-            <span className="text-6xl font-black">{currency} {price}</span>
-            <span className="text-xl text-muted-foreground font-medium">/month</span>
+      <div className="w-full max-w-lg space-y-4">
+
+        <Button
+          variant="ghost"
+          size="sm"
+          className="flex items-center gap-2 text-muted-foreground hover:text-foreground -ml-1"
+          onClick={() => setLocation("/")}
+          data-testid="button-back"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          Back
+        </Button>
+
+        <div className="relative overflow-hidden rounded-2xl border border-primary/20 shadow-2xl bg-card">
+          <div className="absolute top-0 right-0 w-40 h-40 bg-primary/10 rounded-full blur-3xl -mr-20 -mt-20 pointer-events-none" />
+          <div className="absolute bottom-0 left-0 w-48 h-48 bg-primary/10 rounded-full blur-3xl -ml-24 -mb-24 pointer-events-none" />
+
+          <div className="relative p-8 text-center space-y-2 pt-10 border-b border-border">
+            <p className="text-sm font-semibold text-primary uppercase tracking-widest">Pro Plan</p>
+            <h1 className="text-4xl font-extrabold tracking-tight">Unlock Unlimited</h1>
+            <p className="text-muted-foreground">Full access to all features</p>
+            <div className="pt-4">
+              <span className="text-6xl font-black">{currency} {price}</span>
+              <span className="text-xl text-muted-foreground font-medium">/month</span>
+            </div>
           </div>
 
-          <div className="space-y-4 max-w-sm mx-auto bg-card border border-border rounded-xl p-6">
+          <div className="relative p-8 space-y-6">
             <ul className="space-y-3">
               {[
                 "Unlimited watermark-free downloads",
                 "Highest quality video resolution",
                 "Fastest download speeds",
                 "Secure and private",
-                "Cancel anytime"
+                "Cancel anytime",
               ].map((feature, i) => (
                 <li key={i} className="flex items-center gap-3">
                   <div className="w-5 h-5 rounded-full bg-primary/20 flex items-center justify-center shrink-0">
-                    <Check className="w-3 h-3 text-primary font-bold" />
+                    <Check className="w-3 h-3 text-primary" />
                   </div>
-                  <span className="font-medium text-sm">{feature}</span>
+                  <span className="text-sm font-medium">{feature}</span>
                 </li>
               ))}
             </ul>
+
+            <div className="space-y-3 pt-2">
+              <div className="flex items-center gap-2">
+                <Smartphone className="w-4 h-4 text-primary shrink-0" />
+                <Label htmlFor="pay-phone" className="font-semibold text-sm">
+                  M-Pesa Number
+                </Label>
+              </div>
+
+              <Input
+                id="pay-phone"
+                type="tel"
+                placeholder="07XXXXXXXX or 2547XXXXXXXX"
+                value={payPhone}
+                onChange={(e) => {
+                  setPayPhone(e.target.value);
+                  setPhoneEdited(true);
+                }}
+                className="bg-background text-base h-11"
+                data-testid="input-pay-phone"
+              />
+
+              <p className="flex items-start gap-2 text-xs text-muted-foreground leading-relaxed">
+                <Info className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                This is the M-Pesa number that will receive the payment prompt (STK push).
+                It can be different from your registered number.
+              </p>
+            </div>
+
+            <Button
+              size="lg"
+              className="w-full text-base h-13 font-semibold"
+              onClick={handleSubscribe}
+              disabled={subscribeMutation.isPending || !payPhone.trim()}
+              data-testid="button-subscribe-now"
+            >
+              {subscribeMutation.isPending ? (
+                <><Loader2 className="w-5 h-5 mr-2 animate-spin" /> Processing…</>
+              ) : (
+                <>Pay {currency} {price} via M-Pesa</>
+              )}
+            </Button>
+
+            <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground pt-1">
+              <ShieldCheck className="w-3.5 h-3.5 text-primary" />
+              Secured by Paylor · Powered by M-Pesa
+            </div>
           </div>
-        </CardContent>
-        
-        <CardFooter className="pb-10 px-8">
-          <Button 
-            size="lg" 
-            className="w-full text-lg h-14" 
-            onClick={handleSubscribe}
-            disabled={subscribeMutation.isPending}
-            data-testid="button-subscribe-now"
-          >
-            {subscribeMutation.isPending ? (
-              <><Loader2 className="w-5 h-5 mr-2 animate-spin" /> Processing...</>
-            ) : (
-              "Subscribe Now"
-            )}
-          </Button>
-        </CardFooter>
-      </Card>
+        </div>
+      </div>
     </div>
   );
 }

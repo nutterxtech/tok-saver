@@ -52,6 +52,12 @@ router.post("/subscription/subscribe", requireAuth, async (req, res): Promise<vo
     .from(usersTable)
     .where(eq(usersTable.id, userId));
 
+  // Allow the user to specify a different M-Pesa number for payment.
+  // If not provided, fall back to their registered phone.
+  const paymentPhone: string = (typeof req.body?.phone === "string" && req.body.phone.trim())
+    ? req.body.phone.trim()
+    : (user?.phone ?? "");
+
   const amount = Number(await getSetting("subscription_price"));
   const currency = await getSetting("currency");
   const paylorApiKey = await getSetting("paylor_api_key");
@@ -96,11 +102,11 @@ router.post("/subscription/subscribe", requireAuth, async (req, res): Promise<vo
       amount,
       currency,
       reference,
-      phone: user?.phone ?? "",
+      phone: paymentPhone,
       email: user?.email ?? "",
       name: user?.name ?? "",
       callback_url: callbackUrl,
-      description: "TikTok Downloader Monthly Subscription",
+      description: "TokSaver Monthly Subscription",
     };
 
     // channelId is required by Paylor to identify your merchant channel

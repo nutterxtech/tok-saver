@@ -33,6 +33,7 @@ import type {
   PaymentInitResponse,
   PaymentRequiredResponse,
   RegisterBody,
+  SubscribeBody,
   SubscriptionStatus,
   UserResponse,
 } from "./api.schemas";
@@ -684,7 +685,7 @@ export function useGetSubscriptionStatus<
 }
 
 /**
- * Creates a Paylor payment session and returns the payment URL
+ * Creates a Paylor M-Pesa STK push session and returns the payment URL. The phone number is the M-Pesa number that will receive the payment prompt.
  * @summary Initiate subscription payment
  */
 export const getInitiateSubscriptionUrl = () => {
@@ -692,11 +693,14 @@ export const getInitiateSubscriptionUrl = () => {
 };
 
 export const initiateSubscription = async (
+  subscribeBody?: SubscribeBody,
   options?: RequestInit,
 ): Promise<PaymentInitResponse> => {
   return customFetch<PaymentInitResponse>(getInitiateSubscriptionUrl(), {
     ...options,
     method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(subscribeBody),
   });
 };
 
@@ -707,14 +711,14 @@ export const getInitiateSubscriptionMutationOptions = <
   mutation?: UseMutationOptions<
     Awaited<ReturnType<typeof initiateSubscription>>,
     TError,
-    void,
+    { data: BodyType<SubscribeBody> },
     TContext
   >;
   request?: SecondParameter<typeof customFetch>;
 }): UseMutationOptions<
   Awaited<ReturnType<typeof initiateSubscription>>,
   TError,
-  void,
+  { data: BodyType<SubscribeBody> },
   TContext
 > => {
   const mutationKey = ["initiateSubscription"];
@@ -728,9 +732,11 @@ export const getInitiateSubscriptionMutationOptions = <
 
   const mutationFn: MutationFunction<
     Awaited<ReturnType<typeof initiateSubscription>>,
-    void
-  > = () => {
-    return initiateSubscription(requestOptions);
+    { data: BodyType<SubscribeBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return initiateSubscription(data, requestOptions);
   };
 
   return { mutationFn, ...mutationOptions };
@@ -739,7 +745,7 @@ export const getInitiateSubscriptionMutationOptions = <
 export type InitiateSubscriptionMutationResult = NonNullable<
   Awaited<ReturnType<typeof initiateSubscription>>
 >;
-
+export type InitiateSubscriptionMutationBody = BodyType<SubscribeBody>;
 export type InitiateSubscriptionMutationError = ErrorType<ErrorResponse>;
 
 /**
@@ -752,14 +758,14 @@ export const useInitiateSubscription = <
   mutation?: UseMutationOptions<
     Awaited<ReturnType<typeof initiateSubscription>>,
     TError,
-    void,
+    { data: BodyType<SubscribeBody> },
     TContext
   >;
   request?: SecondParameter<typeof customFetch>;
 }): UseMutationResult<
   Awaited<ReturnType<typeof initiateSubscription>>,
   TError,
-  void,
+  { data: BodyType<SubscribeBody> },
   TContext
 > => {
   return useMutation(getInitiateSubscriptionMutationOptions(options));

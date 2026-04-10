@@ -216,7 +216,13 @@ paths:
       operationId: initiateSubscription
       tags: [subscription]
       summary: Initiate subscription payment
-      description: Creates a Paylor payment session and returns the payment URL
+      description: Creates a Paylor M-Pesa STK push session and returns the payment URL. The phone number is the M-Pesa number that will receive the payment prompt.
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SubscribeBody"
       responses:
         "200":
           description: Payment initiation details
@@ -600,6 +606,13 @@ components:
         - createdAt
         - downloadsCount
         - hasActiveSubscription
+
+    SubscribeBody:
+      type: object
+      properties:
+        phone:
+          type: string
+          description: M-Pesa phone number to receive the STK push (e.g. 07XXXXXXXX or 2547XXXXXXXX). Defaults to the user's registered phone.
 
     DownloadBody:
       type: object

@@ -44,6 +44,11 @@ export interface AuthResponse {
   token: string;
 }
 
+export interface SubscribeBody {
+  /** M-Pesa phone number to receive the STK push (e.g. 07XXXXXXXX or 2547XXXXXXXX). Defaults to the user's registered phone. */
+  phone?: string;
+}
+
 export interface DownloadBody {
   url: string;
 }

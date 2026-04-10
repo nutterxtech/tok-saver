@@ -112,9 +112,18 @@ export const GetSubscriptionStatusResponse = zod.object({
 });
 
 /**
- * Creates a Paylor payment session and returns the payment URL
+ * Creates a Paylor M-Pesa STK push session and returns the payment URL. The phone number is the M-Pesa number that will receive the payment prompt.
  * @summary Initiate subscription payment
  */
+export const InitiateSubscriptionBody = zod.object({
+  phone: zod
+    .string()
+    .optional()
+    .describe(
+      "M-Pesa phone number to receive the STK push (e.g. 07XXXXXXXX or 2547XXXXXXXX). Defaults to the user's registered phone.",
+    ),
+});
+
 export const InitiateSubscriptionResponse = zod.object({
   paymentUrl: zod.string(),
   amount: zod.number(),
