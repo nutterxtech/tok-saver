@@ -92,11 +92,21 @@ router.post("/subscription/subscribe", requireAuth, async (req, res): Promise<vo
   });
 
   try {
-    const appUrl = process.env.APP_URL ?? "";
+    // Derive the public base URL of this API server.
+    // Priority: APP_URL env var → Replit dev domain (auto) → empty string
+    const replitDevDomain = process.env.REPLIT_DEV_DOMAIN;
+    const appUrl = process.env.APP_URL
+      ?? (replitDevDomain ? `https://${replitDevDomain}/api-server` : "");
+
+    if (!appUrl) {
+      req.log.error("APP_URL / REPLIT_DEV_DOMAIN not set — callback URL will be empty");
+    }
+
     // The secret token is embedded in the callback URL, not the body.
     // Paylor will POST back to this URL; the user is only redirected to
     // paymentUrl and never sees the token.
     const callbackUrl = `${appUrl}/api/subscription/callback?token=${callbackToken}`;
+    req.log.info({ callbackUrl }, "Paylor callback URL constructed");
 
     if (!paylorChannelId) {
       res.status(500).json({ error: "Payment channel not configured. Contact the admin." });
@@ -159,9 +169,15 @@ router.post("/subscription/subscribe", requireAuth, async (req, res): Promise<vo
 });
 
 router.post("/subscription/callback", async (req, res): Promise<void> => {
+  // Log the raw body first — regardless of schema validity — so we never
+  // silently lose a callback from Paylor due to schema mismatch.
+  req.log.info({ rawBody: req.body }, "Paylor raw callback received");
+
   const parsed = SubscriptionCallbackBody.safeParse(req.body);
   if (!parsed.success) {
-    res.status(400).json({ error: "Invalid callback data" });
+    req.log.warn({ errors: parsed.error.issues, body: req.body }, "Paylor callback body failed schema validation");
+    // Still return 200 so Paylor doesn't keep retrying with an invalid payload.
+    res.status(200).json({ message: "Callback received but ignored (schema mismatch)" });
     return;
   }
   const { reference, status, amount } = parsed.data;
@@ -170,7 +186,7 @@ router.post("/subscription/callback", async (req, res): Promise<void> => {
   // cannot forge it even if they know their own payment reference.
   const callbackToken = typeof req.query.token === "string" ? req.query.token : null;
 
-  req.log.info({ reference, status, amount, hasToken: !!callbackToken }, "Paylor callback received");
+  req.log.info({ reference, status, amount, hasToken: !!callbackToken }, "Paylor callback parsed");
 
   if (!callbackToken) {
     req.log.warn({ reference }, "Callback received without token");
@@ -178,9 +194,10 @@ router.post("/subscription/callback", async (req, res): Promise<void> => {
     return;
   }
 
+  // Case-insensitive — Paylor may send "COMPLETED", "SUCCESS", "PAID", etc.
   const SUCCESSFUL_STATUSES = new Set(["success", "completed", "paid"]);
 
-  if (SUCCESSFUL_STATUSES.has(status)) {
+  if (SUCCESSFUL_STATUSES.has(status.toLowerCase())) {
     // Only activate subscriptions where both the reference AND the secret
     // callbackToken match, ensuring Paylor (not the user) triggered this.
     const [pendingSub] = await db

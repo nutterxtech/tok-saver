@@ -144,8 +144,19 @@ export const InitiateSubscriptionResponse = zod.object({
 export const SubscriptionCallbackBody = zod.object({
   reference: zod.string(),
   status: zod.string(),
-  amount: zod.number(),
+  amount: zod
+    .number()
+    .optional()
+    .describe("Payment amount — may be absent in some Paylor callback formats"),
   phone: zod.string().nullish(),
+  transactionId: zod
+    .string()
+    .nullish()
+    .describe("Paylor internal transaction ID"),
+  mpesaReceipt: zod
+    .string()
+    .nullish()
+    .describe("M-Pesa receipt number after successful payment"),
 });
 
 export const SubscriptionCallbackResponse = zod.object({

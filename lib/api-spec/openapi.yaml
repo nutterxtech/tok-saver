@@ -717,12 +717,18 @@ components:
           type: string
         amount:
           type: number
+          description: Payment amount — may be absent in some Paylor callback formats
         phone:
           type: ["string", "null"]
+        transactionId:
+          type: ["string", "null"]
+          description: Paylor internal transaction ID
+        mpesaReceipt:
+          type: ["string", "null"]
+          description: M-Pesa receipt number after successful payment
       required:
         - reference
         - status
-        - amount
 
     AdminUserRecord:
       type: object

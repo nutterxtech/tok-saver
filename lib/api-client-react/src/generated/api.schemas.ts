@@ -96,9 +96,20 @@ export interface PaymentInitResponse {
 export interface PaylorCallbackBody {
   reference: string;
   status: string;
-  amount: number;
+  /** Payment amount — may be absent in some Paylor callback formats */
+  amount?: number;
   /** @nullable */
   phone?: string | null;
+  /**
+   * Paylor internal transaction ID
+   * @nullable
+   */
+  transactionId?: string | null;
+  /**
+   * M-Pesa receipt number after successful payment
+   * @nullable
+   */
+  mpesaReceipt?: string | null;
 }
 
 export interface AdminUserRecord {
