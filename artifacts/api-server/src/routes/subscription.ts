@@ -54,9 +54,19 @@ router.post("/subscription/subscribe", requireAuth, async (req, res): Promise<vo
     .from(usersTable)
     .where(eq(usersTable.id, userId));
 
-  const paymentPhone: string = (typeof req.body?.phone === "string" && req.body.phone.trim())
+  const rawPhone: string = (typeof req.body?.phone === "string" && req.body.phone.trim())
     ? req.body.phone.trim()
     : (user?.phone ?? "");
+
+  // Normalize to 254XXXXXXXXX format required by Safaricom M-Pesa / Paylor
+  function normalizePhone(p: string): string {
+    let n = p.replace(/[\s\-().]/g, ""); // strip spaces, dashes, brackets
+    if (n.startsWith("+")) n = n.slice(1);       // +254... → 254...
+    if (n.startsWith("0")) n = "254" + n.slice(1); // 07... → 2547...
+    if (/^[71]/.test(n)) n = "254" + n;            // 7... or 1... → 254...
+    return n;
+  }
+  const paymentPhone = normalizePhone(rawPhone);
 
   const amount = Number(await getSetting("subscription_price"));
   const currency = await getSetting("currency");
@@ -99,7 +109,7 @@ router.post("/subscription/subscribe", requireAuth, async (req, res): Promise<vo
     const appUrl = configuredAppUrl || process.env.APP_URL || `${forwardedProto}://${forwardedHost}`;
     const callbackUrl = `${appUrl}/api/subscription/callback`;
 
-    req.log.info({ callbackUrl, appUrl, configuredAppUrl, reference }, "Initiating Paylor STK push");
+    req.log.error({ callbackUrl, appUrl, configuredAppUrl, reference, rawPhone, paymentPhone }, "Initiating Paylor STK push");
 
     const stkPushUrl = `${paylorApiUrl.replace(/\/$/, "")}/merchants/payments/stk-push`;
 
