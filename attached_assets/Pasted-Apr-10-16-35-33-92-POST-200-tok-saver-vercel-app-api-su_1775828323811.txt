@@ -1,0 +1,323 @@
+Apr 10 16:35:33.92
+POST
+200
+tok-saver.vercel.app
+/api/subscription/verify
+6
+{"level":30,"time":1775828137709,"pid":4,"hostname":"169.254.39.141","req":{"id":20,"method":"POST","url":"/api/subscription/verify"},"res":{"statusCode":200},"responseTime":3638,"msg":"request completed"}
+Apr 10 16:35:23.82
+POST
+200
+tok-saver.vercel.app
+/api/subscription/verify
+6
+{"level":30,"time":1775828127606,"pid":4,"hostname":"169.254.39.141","req":{"id":19,"method":"POST","url":"/api/subscription/verify"},"res":{"statusCode":200},"responseTime":3640,"msg":"request completed"}
+Apr 10 16:35:13.82
+POST
+200
+tok-saver.vercel.app
+/api/subscription/verify
+6
+{"level":30,"time":1775828117596,"pid":4,"hostname":"169.254.39.141","req":{"id":18,"method":"POST","url":"/api/subscription/verify"},"res":{"statusCode":200},"responseTime":3637,"msg":"request completed"}
+Apr 10 16:35:03.82
+POST
+200
+tok-saver.vercel.app
+/api/subscription/verify
+6
+{"level":30,"time":1775828107608,"pid":4,"hostname":"169.254.39.141","req":{"id":17,"method":"POST","url":"/api/subscription/verify"},"res":{"statusCode":200},"responseTime":3647,"msg":"request completed"}
+Apr 10 16:34:53.82
+POST
+200
+tok-saver.vercel.app
+/api/subscription/verify
+6
+{"level":30,"time":1775828097600,"pid":4,"hostname":"169.254.39.141","req":{"id":16,"method":"POST","url":"/api/subscription/verify"},"res":{"statusCode":200},"responseTime":3639,"msg":"request completed"}
+Apr 10 16:34:43.82
+POST
+200
+tok-saver.vercel.app
+/api/subscription/verify
+6
+{"level":30,"time":1775828087595,"pid":4,"hostname":"169.254.39.141","req":{"id":15,"method":"POST","url":"/api/subscription/verify"},"res":{"statusCode":200},"responseTime":3637,"msg":"request completed"}
+Apr 10 16:34:33.59
+POST
+200
+tok-saver.vercel.app
+/api/subscription/verify
+6
+{"level":30,"time":1775828077398,"pid":4,"hostname":"169.254.39.141","req":{"id":14,"method":"POST","url":"/api/subscription/verify"},"res":{"statusCode":200},"responseTime":3683,"msg":"request completed"}
+Apr 10 16:34:33.55
+GET
+304
+tok-saver.vercel.app
+/api/subscription/status
+{"level":30,"time":1775828074420,"pid":4,"hostname":"169.254.54.185","req":{"id":10,"method":"GET","url":"/api/subscription/status"},"res":{"statusCode":200},"responseTime":726,"msg":"request completed"}
+Apr 10 16:34:33.55
+GET
+304
+tok-saver.vercel.app
+/api/auth/me
+{"level":30,"time":1775828073966,"pid":4,"hostname":"169.254.39.141","req":{"id":13,"method":"GET","url":"/api/auth/me"},"res":{"statusCode":200},"responseTime":281,"msg":"request completed"}
+Apr 10 16:34:29.25
+GET
+304
+tok-saver.vercel.app
+/api/subscription/status
+{"level":30,"time":1775828070101,"pid":4,"hostname":"169.254.39.141","req":{"id":12,"method":"GET","url":"/api/subscription/status"},"res":{"statusCode":200},"responseTime":718,"msg":"request completed"}
+Apr 10 16:34:29.24
+GET
+304
+tok-saver.vercel.app
+/api/auth/me
+{"level":30,"time":1775828069655,"pid":4,"hostname":"169.254.39.141","req":{"id":11,"method":"GET","url":"/api/auth/me"},"res":{"statusCode":200},"responseTime":285,"msg":"request completed"}
+Apr 10 16:34:23.85
+POST
+200
+tok-saver.vercel.app
+/api/subscription/verify
+6
+{"level":30,"time":1775828067916,"pid":4,"hostname":"169.254.39.141","req":{"id":10,"method":"POST","url":"/api/subscription/verify"},"res":{"statusCode":200},"responseTime":3929,"msg":"request completed"}
+Apr 10 16:34:13.07
+POST
+200
+tok-saver.vercel.app
+/api/subscription/verify
+6
+{"level":30,"time":1775828056856,"pid":4,"hostname":"169.254.39.141","req":{"id":9,"method":"POST","url":"/api/subscription/verify"},"res":{"statusCode":200},"responseTime":3633,"msg":"request completed"}
+Apr 10 16:34:03.05
+POST
+200
+tok-saver.vercel.app
+/api/subscription/verify
+6
+{"level":30,"time":1775828047133,"pid":4,"hostname":"169.254.39.141","req":{"id":8,"method":"POST","url":"/api/subscription/verify"},"res":{"statusCode":200},"responseTime":3932,"msg":"request completed"}
+Apr 10 16:33:41.21
+POST
+200
+tok-saver.vercel.app
+/api/subscription/subscribe
+3
+{"level":30,"time":1775828032820,"pid":4,"hostname":"169.254.39.141","req":{"id":7,"method":"POST","url":"/api/subscription/subscribe"},"res":{"statusCode":200},"responseTime":11476,"msg":"request completed"}
+Apr 10 16:33:35.94
+GET
+304
+tok-saver.vercel.app
+/api/subscription/status
+{"level":30,"time":1775828016498,"pid":4,"hostname":"169.254.39.141","req":{"id":6,"method":"GET","url":"/api/subscription/status"},"res":{"statusCode":200},"responseTime":423,"msg":"request completed"}
+Apr 10 16:33:32.66
+GET
+304
+tok-saver.vercel.app
+/api/downloads/history
+{"level":30,"time":1775828012936,"pid":4,"hostname":"169.254.54.185","req":{"id":9,"method":"GET","url":"/api/downloads/history"},"res":{"statusCode":200},"responseTime":141,"msg":"request completed"}
+Apr 10 16:33:32.66
+GET
+304
+tok-saver.vercel.app
+/api/subscription/status
+{"level":30,"time":1775828013517,"pid":4,"hostname":"169.254.39.141","req":{"id":5,"method":"GET","url":"/api/subscription/status"},"res":{"statusCode":200},"responseTime":717,"msg":"request completed"}
+Apr 10 16:33:31.66
+GET
+304
+tok-saver.vercel.app
+/api/auth/me
+{"level":30,"time":1775828012376,"pid":4,"hostname":"169.254.54.185","req":{"id":8,"method":"GET","url":"/api/auth/me"},"res":{"statusCode":200},"responseTime":575,"msg":"request completed"}
+Apr 10 16:33:20.98
+GET
+304
+tok-saver.vercel.app
+/api/auth/me
+{"level":30,"time":1775828001409,"pid":4,"hostname":"169.254.54.185","req":{"id":7,"method":"GET","url":"/api/auth/me"},"res":{"statusCode":200},"responseTime":281,"msg":"request completed"}
+Apr 10 16:33:13.67
+GET
+304
+tok-saver.vercel.app
+/api/auth/me
+{"level":30,"time":1775827994432,"pid":4,"hostname":"169.254.54.185","req":{"id":6,"method":"GET","url":"/api/auth/me"},"res":{"statusCode":200},"responseTime":581,"msg":"request completed"}
+Apr 10 16:32:51.51
+GET
+304
+tok-saver.vercel.app
+/api/downloads/history
+{"level":30,"time":1775827971785,"pid":4,"hostname":"169.254.39.141","req":{"id":4,"method":"GET","url":"/api/downloads/history"},"res":{"statusCode":200},"responseTime":143,"msg":"request completed"}
+Apr 10 16:32:51.51
+GET
+304
+tok-saver.vercel.app
+/api/subscription/status
+{"level":30,"time":1775827972073,"pid":4,"hostname":"169.254.54.185","req":{"id":5,"method":"GET","url":"/api/subscription/status"},"res":{"statusCode":200},"responseTime":418,"msg":"request completed"}
+Apr 10 16:32:50.82
+GET
+304
+tok-saver.vercel.app
+/api/auth/me
+{"level":30,"time":1775827971254,"pid":4,"hostname":"169.254.39.141","req":{"id":3,"method":"GET","url":"/api/auth/me"},"res":{"statusCode":200},"responseTime":282,"msg":"request completed"}
+Apr 10 16:32:47.69
+GET
+304
+tok-saver.vercel.app
+/api/downloads/history
+{"level":30,"time":1775827968318,"pid":4,"hostname":"169.254.54.185","req":{"id":4,"method":"GET","url":"/api/downloads/history"},"res":{"statusCode":200},"responseTime":143,"msg":"request completed"}
+Apr 10 16:32:47.68
+GET
+304
+tok-saver.vercel.app
+/api/subscription/status
+{"level":30,"time":1775827968603,"pid":4,"hostname":"169.254.39.141","req":{"id":2,"method":"GET","url":"/api/subscription/status"},"res":{"statusCode":200},"responseTime":421,"msg":"request completed"}
+Apr 10 16:32:45.71
+GET
+304
+tok-saver.vercel.app
+/api/subscription/status
+{"level":30,"time":1775827966286,"pid":4,"hostname":"169.254.54.185","req":{"id":2,"method":"GET","url":"/api/subscription/status"},"res":{"statusCode":200},"responseTime":428,"msg":"request completed"}
+Apr 10 16:32:45.71
+GET
+304
+tok-saver.vercel.app
+/api/auth/me
+{"level":30,"time":1775827966720,"pid":4,"hostname":"169.254.54.185","req":{"id":3,"method":"GET","url":"/api/auth/me"},"res":{"statusCode":200},"responseTime":573,"msg":"request completed"}
+Apr 10 16:32:40.30
+GET
+304
+tok-saver.vercel.app
+/api/subscription/status
+2
+(node:4) [DEP0169] DeprecationWarning: `url.parse()` behavior is not standardized and prone to errors that have security implications. Use the WHATWG URL API instead. CVEs are not issued for `url.parse()` vulnerabilities.
+Apr 10 16:32:40.23
+GET
+304
+tok-saver.vercel.app
+/api/auth/me
+2
+(node:4) [DEP0169] DeprecationWarning: `url.parse()` behavior is not standardized and prone to errors that have security implications. Use the WHATWG URL API instead. CVEs are not issued for `url.parse()` vulnerabilities.
+Apr 10 16:30:12.12
+GET
+304
+tok-saver.vercel.app
+/api/auth/me
+{"level":30,"time":1775827812858,"pid":4,"hostname":"169.254.25.65","req":{"id":10,"method":"GET","url":"/api/auth/me"},"res":{"statusCode":200},"responseTime":591,"msg":"request completed"}
+Apr 10 16:30:12.12
+GET
+304
+tok-saver.vercel.app
+/api/subscription/status
+{"level":30,"time":1775827813011,"pid":4,"hostname":"169.254.27.117","req":{"id":4,"method":"GET","url":"/api/subscription/status"},"res":{"statusCode":200},"responseTime":737,"msg":"request completed"}
+Apr 10 16:28:15.97
+GET
+304
+tok-saver.vercel.app
+/api/subscription/status
+{"level":30,"time":1775827696543,"pid":4,"hostname":"169.254.25.65","req":{"id":9,"method":"GET","url":"/api/subscription/status"},"res":{"statusCode":200},"responseTime":424,"msg":"request completed"}
+Apr 10 16:28:15.97
+GET
+304
+tok-saver.vercel.app
+/api/auth/me
+{"level":30,"time":1775827696391,"pid":4,"hostname":"169.254.71.225","req":{"id":20,"method":"GET","url":"/api/auth/me"},"res":{"statusCode":200},"responseTime":277,"msg":"request completed"}
+Apr 10 16:28:10.07
+GET
+304
+tok-saver.vercel.app
+/api/subscription/status
+{"level":30,"time":1775827690928,"pid":4,"hostname":"169.254.71.225","req":{"id":19,"method":"GET","url":"/api/subscription/status"},"res":{"statusCode":200},"responseTime":710,"msg":"request completed"}
+Apr 10 16:28:10.07
+GET
+304
+tok-saver.vercel.app
+/api/auth/me
+{"level":30,"time":1775827690808,"pid":4,"hostname":"169.254.25.65","req":{"id":8,"method":"GET","url":"/api/auth/me"},"res":{"statusCode":200},"responseTime":578,"msg":"request completed"}
+Apr 10 16:26:05.82
+POST
+200
+tok-saver.vercel.app
+/api/subscription/verify
+6
+{"level":30,"time":1775827580136,"pid":4,"hostname":"169.254.71.225","req":{"id":18,"method":"POST","url":"/api/subscription/verify"},"res":{"statusCode":200},"responseTime":14185,"msg":"request completed"}
+Apr 10 16:25:55.81
+POST
+200
+tok-saver.vercel.app
+/api/subscription/verify
+6
+{"level":30,"time":1775827568936,"pid":4,"hostname":"169.254.71.225","req":{"id":17,"method":"POST","url":"/api/subscription/verify"},"res":{"statusCode":200},"responseTime":12972,"msg":"request completed"}
+Apr 10 16:25:45.82
+POST
+200
+tok-saver.vercel.app
+/api/subscription/verify
+6
+{"level":30,"time":1775827559137,"pid":4,"hostname":"169.254.71.225","req":{"id":16,"method":"POST","url":"/api/subscription/verify"},"res":{"statusCode":200},"responseTime":13193,"msg":"request completed"}
+Apr 10 16:25:35.82
+POST
+200
+tok-saver.vercel.app
+/api/subscription/verify
+6
+{"level":30,"time":1775827548841,"pid":4,"hostname":"169.254.71.225","req":{"id":15,"method":"POST","url":"/api/subscription/verify"},"res":{"statusCode":200},"responseTime":12893,"msg":"request completed"}
+Apr 10 16:25:25.82
+POST
+200
+tok-saver.vercel.app
+/api/subscription/verify
+6
+{"level":30,"time":1775827538853,"pid":4,"hostname":"169.254.71.225","req":{"id":14,"method":"POST","url":"/api/subscription/verify"},"res":{"statusCode":200},"responseTime":12905,"msg":"request completed"}
+Apr 10 16:25:15.81
+POST
+200
+tok-saver.vercel.app
+/api/subscription/verify
+6
+{"level":30,"time":1775827528855,"pid":4,"hostname":"169.254.71.225","req":{"id":13,"method":"POST","url":"/api/subscription/verify"},"res":{"statusCode":200},"responseTime":12915,"msg":"request completed"}
+Apr 10 16:25:08.41
+GET
+304
+tok-saver.vercel.app
+/api/subscription/status
+{"level":30,"time":1775827509259,"pid":4,"hostname":"169.254.71.225","req":{"id":12,"method":"GET","url":"/api/subscription/status"},"res":{"statusCode":200},"responseTime":714,"msg":"request completed"}
+Apr 10 16:25:08.40
+GET
+304
+tok-saver.vercel.app
+/api/auth/me
+{"level":30,"time":1775827508808,"pid":4,"hostname":"169.254.71.225","req":{"id":11,"method":"GET","url":"/api/auth/me"},"res":{"statusCode":200},"responseTime":282,"msg":"request completed"}
+Apr 10 16:25:04.87
+POST
+200
+tok-saver.vercel.app
+/api/subscription/verify
+6
+{"level":30,"time":1775827517935,"pid":4,"hostname":"169.254.71.225","req":{"id":10,"method":"POST","url":"/api/subscription/verify"},"res":{"statusCode":200},"responseTime":12929,"msg":"request completed"}
+Apr 10 16:24:55.05
+POST
+200
+tok-saver.vercel.app
+/api/subscription/verify
+6
+{"level":30,"time":1775827508788,"pid":4,"hostname":"169.254.71.225","req":{"id":9,"method":"POST","url":"/api/subscription/verify"},"res":{"statusCode":200},"responseTime":13606,"msg":"request completed"}
+Apr 10 16:24:44.83
+POST
+200
+tok-saver.vercel.app
+/api/subscription/verify
+6
+{"level":30,"time":1775827498764,"pid":4,"hostname":"169.254.71.225","req":{"id":8,"method":"POST","url":"/api/subscription/verify"},"res":{"statusCode":200},"responseTime":13794,"msg":"request completed"}
+Apr 10 16:24:23.27
+POST
+200
+tok-saver.vercel.app
+/api/subscription/subscribe
+3
+{"level":30,"time":1775827474582,"pid":4,"hostname":"169.254.71.225","req":{"id":7,"method":"POST","url":"/api/subscription/subscribe"},"res":{"statusCode":200},"responseTime":11175,"msg":"request completed"}
+Apr 10 16:24:14.38
+GET
+304
+tok-saver.vercel.app
+/api/subscription/status
+{"level":30,"time":1775827454939,"pid":4,"hostname":"169.254.71.225","req":{"id":6,"method":"GET","url":"/api/subscription/status"},"res":{"statusCode":200},"responseTime":425,"msg":"request completed"}
+Apr 10 16:24:12.78
+GET
+304
+tok-saver.vercel.app
+/api/subscription/status
+{"level":30,"tim

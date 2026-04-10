@@ -65,7 +65,7 @@ export default function Subscribe() {
           }
         },
       });
-    }, 10000);
+    }, 5000);
     return () => { if (pollRef.current) clearInterval(pollRef.current); };
   }, [stkSent]); // eslint-disable-line react-hooks/exhaustive-deps
 
