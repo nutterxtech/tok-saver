@@ -5,20 +5,23 @@ interface BeforeInstallPromptEvent extends Event {
   userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
 }
 
-export type InstallState = "unsupported" | "ios" | "ready" | "installed";
+// "unsupported" = initial (hidden), "ios" = iOS Safari, "ready" = Chrome auto-prompt,
+// "manual" = browser can't auto-prompt but can show instructions, "installed" = done
+export type InstallState = "unsupported" | "ios" | "ready" | "manual" | "installed";
 
 export function usePwaInstall() {
   const [installState, setInstallState] = useState<InstallState>("unsupported");
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
 
   useEffect(() => {
+    // Register service worker using the app's base URL so the scope is correct
     if ("serviceWorker" in navigator) {
-      navigator.serviceWorker.register("/sw.js").catch(() => {});
+      const base = import.meta.env.BASE_URL ?? "/";
+      navigator.serviceWorker
+        .register(`${base}sw.js`, { scope: base })
+        .catch(() => {});
     }
 
-    const isIos =
-      /iphone|ipad|ipod/i.test(navigator.userAgent) &&
-      !(navigator as unknown as { standalone?: boolean }).standalone;
     const isInstalled =
       window.matchMedia("(display-mode: standalone)").matches ||
       (navigator as unknown as { standalone?: boolean }).standalone === true;
@@ -27,27 +30,51 @@ export function usePwaInstall() {
       setInstallState("installed");
       return;
     }
+
+    const isIos =
+      /iphone|ipad|ipod/i.test(navigator.userAgent) &&
+      !(navigator as unknown as { standalone?: boolean }).standalone;
+
     if (isIos) {
       setInstallState("ios");
       return;
     }
 
+    // Listen for Chrome/Edge's native install prompt
     const handler = (e: Event) => {
       e.preventDefault();
       setDeferredPrompt(e as BeforeInstallPromptEvent);
       setInstallState("ready");
     };
     window.addEventListener("beforeinstallprompt", handler);
-    return () => window.removeEventListener("beforeinstallprompt", handler);
+
+    // If the browser never fires beforeinstallprompt within 3 seconds
+    // (Firefox, Brave, Samsung Internet, etc.), fall back to manual instructions
+    const fallbackTimer = setTimeout(() => {
+      setInstallState((prev) =>
+        prev === "unsupported" ? "manual" : prev
+      );
+    }, 3000);
+
+    return () => {
+      window.removeEventListener("beforeinstallprompt", handler);
+      clearTimeout(fallbackTimer);
+    };
   }, []);
 
   const install = async () => {
-    if (!deferredPrompt) return;
+    if (!deferredPrompt) return false;
     await deferredPrompt.prompt();
     const { outcome } = await deferredPrompt.userChoice;
-    if (outcome === "accepted") setInstallState("installed");
     setDeferredPrompt(null);
+    if (outcome === "accepted") {
+      setInstallState("installed");
+      return true;
+    }
+    return false;
   };
 
-  return { installState, install };
+  const markInstalled = () => setInstallState("installed");
+
+  return { installState, install, markInstalled };
 }
