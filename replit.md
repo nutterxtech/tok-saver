@@ -30,7 +30,7 @@ pnpm workspace monorepo using TypeScript. Each package manages its own dependenc
 
 ### TikTok Downloader (`artifacts/tiktok-downloader`)
 - **Preview path**: `/`
-- **Purpose**: TikTok watermark-free video downloader with subscription paywall
+- **Purpose**: Multi-platform watermark-free video downloader (TikTok, Instagram, Facebook) with subscription paywall
 - **Features**:
   - User registration (name, email, phone, password) — phone enforces uniqueness to prevent account farming
   - JWT authentication (stored in localStorage)
@@ -38,7 +38,8 @@ pnpm workspace monorepo using TypeScript. Each package manages its own dependenc
   - KSH 49/month subscription via Paylor payment gateway (https://paylor.webnixke.com/)
   - Admin dashboard at `/?admin=true` protected by admin key
   - Admin can configure: subscription price, Paylor API key/URL, admin key, free download limit
-  - TikTok video fetching via tikwm.com API (no watermark)
+  - TikTok/Facebook video fetching via tikwm.com API (no watermark)
+  - Instagram/Facebook video fetching via cobalt.tools API (free, no API key required)
 
 ### API Server (`artifacts/api-server`)
 - **Preview path**: `/api`
@@ -47,7 +48,7 @@ pnpm workspace monorepo using TypeScript. Each package manages its own dependenc
   - `POST /api/auth/login` — login with email/password
   - `POST /api/auth/logout` — logout
   - `GET /api/auth/me` — get current user (requires auth)
-  - `POST /api/download` — download TikTok video (requires auth, enforces quota)
+  - `POST /api/download` — download TikTok/Instagram/Facebook video (requires auth, enforces quota)
   - `GET /api/downloads/history` — download history (requires auth)
   - `GET /api/subscription/status` — subscription status (requires auth)
   - `POST /api/subscription/subscribe` — initiate Paylor payment (requires auth)

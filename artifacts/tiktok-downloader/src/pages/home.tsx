@@ -47,7 +47,10 @@ import {
 
 // --- URL Input Form Schema ---
 const downloadSchema = z.object({
-  url: z.string().url("Please enter a valid URL").regex(/tiktok\.com/i, "Must be a TikTok URL"),
+  url: z.string().url("Please enter a valid URL").regex(
+    /tiktok\.com|vm\.tiktok\.com|instagram\.com|instagr\.am|facebook\.com|fb\.watch|fb\.com/i,
+    "Please enter a TikTok, Instagram, or Facebook video link"
+  ),
 });
 
 // --- Admin Key Form Schema ---
@@ -95,11 +98,11 @@ function Landing() {
     <div className="flex-1 flex flex-col items-center justify-center p-4 text-center max-w-3xl mx-auto space-y-8 min-h-[70vh]">
       <div className="space-y-4">
         <h1 className="text-4xl md:text-6xl font-extrabold tracking-tight">
-          Download TikToks <br className="hidden md:block" />
+          Download Videos <br className="hidden md:block" />
           <span className="text-primary">Without Watermarks</span>
         </h1>
         <p className="text-lg text-muted-foreground max-w-xl mx-auto">
-          High-quality, fast, and completely watermark-free video downloads. Register now to get your first download absolutely free.
+          TikTok, Instagram & Facebook — high-quality, watermark-free downloads. Register now to get your first download absolutely free.
         </p>
       </div>
       
@@ -140,7 +143,7 @@ function Landing() {
 function DownloadInterface() {
   const { toast } = useToast();
   const [_, setLocation] = useLocation();
-  const [downloadResult, setDownloadResult] = useState<{url: string, title?: string | null, thumbnail?: string | null} | null>(null);
+  const [downloadResult, setDownloadResult] = useState<{url: string, title?: string | null, thumbnail?: string | null, sourceUrl?: string} | null>(null);
   const [saveProgress, setSaveProgress] = useState<number | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -149,14 +152,17 @@ function DownloadInterface() {
   
   const downloadMutation = useDownloadVideo();
 
-  function saveVideoToDevice(videoUrl: string, title?: string | null) {
+  function saveVideoToDevice(videoUrl: string, title?: string | null, sourceUrl?: string) {
     const token = localStorage.getItem("auth_token");
     const apiBase = (import.meta.env.VITE_API_URL as string | undefined) || "";
-    const safeFilename = (title || "tiktok-video")
+    const defaultName = sourceUrl?.includes("instagram") ? "instagram-video"
+      : sourceUrl?.includes("facebook") || sourceUrl?.includes("fb.") ? "facebook-video"
+      : "tiktok-video";
+    const safeFilename = (title || defaultName)
       .replace(/[^a-zA-Z0-9_\-\s]/g, "")
       .trim()
       .replace(/\s+/g, "-")
-      .slice(0, 60) || "tiktok-video";
+      .slice(0, 60) || defaultName;
     const proxyUrl = `${apiBase}/api/download-proxy?url=${encodeURIComponent(videoUrl)}&filename=${encodeURIComponent(safeFilename + ".mp4")}`;
 
     setIsSaving(true);
@@ -220,7 +226,8 @@ function DownloadInterface() {
           setDownloadResult({
             url: data.downloadUrl,
             title: data.title,
-            thumbnail: data.thumbnailUrl
+            thumbnail: data.thumbnailUrl,
+            sourceUrl: values.url,
           });
           toast({
             title: "Success",
@@ -256,7 +263,7 @@ function DownloadInterface() {
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-card border border-border p-6 rounded-xl shadow-sm">
         <div>
           <h2 className="text-2xl font-bold tracking-tight">Download Video</h2>
-          <p className="text-muted-foreground mt-1">Paste a TikTok URL below to get the watermark-free video.</p>
+          <p className="text-muted-foreground mt-1">Paste a TikTok, Instagram, or Facebook video link to get the watermark-free video.</p>
         </div>
         
         {subStatus && (
@@ -302,11 +309,11 @@ function DownloadInterface() {
                 name="url"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>TikTok URL</FormLabel>
+                    <FormLabel>Video URL</FormLabel>
                     <FormControl>
                       <div className="flex gap-2">
                         <Input 
-                          placeholder="https://www.tiktok.com/@user/video/1234567890" 
+                          placeholder="https://www.tiktok.com/... or instagram.com/reel/... or facebook.com/..."
                           {...field} 
                           className="flex-1 bg-background"
                           data-testid="input-tiktok-url"
@@ -341,7 +348,7 @@ function DownloadInterface() {
               )}
               
               <div className="flex-1 flex flex-col justify-center space-y-4 w-full">
-                <h4 className="font-semibold line-clamp-2">{downloadResult.title || "TikTok Video"}</h4>
+                <h4 className="font-semibold line-clamp-2">{downloadResult.title || "Video Ready"}</h4>
 
                 {isSaving ? (
                   <div className="space-y-2 w-full sm:max-w-xs">
@@ -354,7 +361,7 @@ function DownloadInterface() {
                 ) : (
                   <Button
                     className="w-full sm:w-auto"
-                    onClick={() => saveVideoToDevice(downloadResult.url, downloadResult.title)}
+                    onClick={() => saveVideoToDevice(downloadResult.url, downloadResult.title, downloadResult.sourceUrl)}
                     data-testid="link-save-video"
                   >
                     <HardDriveDownload className="w-4 h-4 mr-2" />

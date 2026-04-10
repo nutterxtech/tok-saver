@@ -4,10 +4,18 @@ import { eq, and, gt, count, desc } from "drizzle-orm";
 import { requireAuth } from "../middlewares/requireAuth";
 import { DownloadVideoBody } from "@workspace/api-zod";
 import { fetchTikTokVideo } from "../lib/tiktok";
+import { fetchInstagramVideo } from "../lib/instagram";
 import { getSetting } from "../lib/settings";
 import { Readable } from "node:stream";
 
 const router: IRouter = Router();
+
+function detectPlatform(url: string): "tiktok" | "facebook" | "instagram" | null {
+  if (/tiktok\.com|vm\.tiktok\.com/i.test(url)) return "tiktok";
+  if (/facebook\.com|fb\.watch|fb\.com/i.test(url)) return "facebook";
+  if (/instagram\.com|instagr\.am/i.test(url)) return "instagram";
+  return null;
+}
 
 router.post("/download", requireAuth, async (req, res): Promise<void> => {
   const parsed = DownloadVideoBody.safeParse(req.body);
@@ -17,8 +25,9 @@ router.post("/download", requireAuth, async (req, res): Promise<void> => {
   }
   const { url } = parsed.data;
 
-  if (!url.includes("tiktok.com") && !url.includes("vm.tiktok.com")) {
-    res.status(400).json({ error: "Invalid TikTok URL" });
+  const platform = detectPlatform(url);
+  if (!platform) {
+    res.status(400).json({ error: "Unsupported URL. Please paste a TikTok, Instagram, or Facebook video link." });
     return;
   }
 
@@ -55,7 +64,13 @@ router.post("/download", requireAuth, async (req, res): Promise<void> => {
   }
 
   try {
-    const videoInfo = await fetchTikTokVideo(url);
+    let videoInfo: { downloadUrl: string; title: string | null; thumbnailUrl: string | null };
+
+    if (platform === "instagram" || platform === "facebook") {
+      videoInfo = await fetchInstagramVideo(url);
+    } else {
+      videoInfo = await fetchTikTokVideo(url);
+    }
 
     await db.insert(downloadsTable).values({ userId, url });
 
@@ -70,8 +85,8 @@ router.post("/download", requireAuth, async (req, res): Promise<void> => {
       remainingFreeDownloads,
     });
   } catch (err) {
-    req.log.error({ err }, "Failed to fetch TikTok video");
-    res.status(422).json({ error: "Could not process TikTok URL. Please check the URL and try again." });
+    req.log.error({ err, platform }, "Failed to fetch video");
+    res.status(422).json({ error: `Could not process this ${platform} URL. Please check the link and try again.` });
   }
 });
 
@@ -95,8 +110,9 @@ router.get("/downloads/history", requireAuth, async (req, res): Promise<void> =>
 
 // Proxy a video URL through the server so the browser can download it with
 // a proper Content-Length header (needed for XHR progress tracking) and
-// without CORS restrictions from the CDN.
+// without CORS restrictions from CDNs.
 const ALLOWED_PROXY_HOSTS = [
+  // TikTok CDN hosts
   "tikcdn.io",
   "tikwm.com",
   "tiktokcdn.com",
@@ -105,11 +121,20 @@ const ALLOWED_PROXY_HOSTS = [
   "akamaized.net",
   "v19-webapp.tiktok.com",
   "v19.tiktokcdn.com",
+  // Instagram & Facebook CDN hosts
+  "cdninstagram.com",
+  "scontent.cdninstagram.com",
+  "video.cdninstagram.com",
+  "fbcdn.net",
+  "video.fbcdn.net",
+  "scontent.fcdn.net",
+  // cobalt.tools tunnel (proxied downloads for Instagram/Facebook/TikTok)
+  "api.cobalt.tools",
 ];
 
 router.get("/download-proxy", requireAuth, async (req, res): Promise<void> => {
   const rawUrl = typeof req.query.url === "string" ? req.query.url : null;
-  const filename = typeof req.query.filename === "string" ? req.query.filename : "tiktok-video.mp4";
+  const filename = typeof req.query.filename === "string" ? req.query.filename : "video.mp4";
 
   if (!rawUrl) {
     res.status(400).json({ error: "Missing url query parameter" });
@@ -156,7 +181,6 @@ router.get("/download-proxy", requireAuth, async (req, res): Promise<void> => {
       res.setHeader("Content-Length", contentLength);
     }
 
-    // Pipe the web ReadableStream through Node's stream to the HTTP response
     if (upstream.body) {
       const nodeStream = Readable.fromWeb(upstream.body as Parameters<typeof Readable.fromWeb>[0]);
       nodeStream.pipe(res);
@@ -174,4 +198,3 @@ router.get("/download-proxy", requireAuth, async (req, res): Promise<void> => {
 });
 
 export default router;
-
