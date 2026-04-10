@@ -509,6 +509,34 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /admin/payments:
+    get:
+      operationId: adminGetPayments
+      tags: [admin]
+      summary: List all payment records
+      description: Returns all subscription payment records with user details. Requires admin key.
+      parameters:
+        - name: x-admin-key
+          in: header
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of payment records
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PaymentRecord"
+        "401":
+          description: Invalid or missing admin key
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /admin/stats:
     get:
       operationId: adminGetStats
@@ -825,6 +853,44 @@ components:
           type: ["string", "null"]
         freeDownloadsPerUser:
           type: ["integer", "null"]
+
+    PaymentRecord:
+      type: object
+      properties:
+        id:
+          type: integer
+        userId:
+          type: integer
+        userName:
+          type: string
+        userEmail:
+          type: string
+        userPhone:
+          type: ["string", "null"]
+        status:
+          type: string
+        amountPaid:
+          type: number
+        currency:
+          type: string
+        paymentReference:
+          type: ["string", "null"]
+        expiresAt:
+          type: string
+          format: date-time
+        paidAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - userId
+        - userName
+        - userEmail
+        - status
+        - amountPaid
+        - currency
+        - expiresAt
+        - paidAt
 
     AdminStats:
       type: object

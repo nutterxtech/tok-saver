@@ -153,6 +153,22 @@ export interface AdminSettingsUpdate {
   freeDownloadsPerUser?: number | null;
 }
 
+export interface PaymentRecord {
+  id: number;
+  userId: number;
+  userName: string;
+  userEmail: string;
+  /** @nullable */
+  userPhone?: string | null;
+  status: string;
+  amountPaid: number;
+  currency: string;
+  /** @nullable */
+  paymentReference?: string | null;
+  expiresAt: string;
+  paidAt: string;
+}
+
 export interface AdminStats {
   totalUsers: number;
   activeSubscribers: number;

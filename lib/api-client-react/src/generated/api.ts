@@ -31,6 +31,7 @@ import type {
   MessageResponse,
   PaylorCallbackBody,
   PaymentInitResponse,
+  PaymentRecord,
   PaymentRequiredResponse,
   RegisterBody,
   SubscribeBody,
@@ -1518,6 +1519,82 @@ export const useAdminDeleteUser = <
 > => {
   return useMutation(getAdminDeleteUserMutationOptions(options));
 };
+
+/**
+ * Returns all subscription payment records with user details. Requires admin key.
+ * @summary List all payment records
+ */
+export const getAdminGetPaymentsUrl = () => {
+  return `/api/admin/payments`;
+};
+
+export const adminGetPayments = async (
+  options?: RequestInit,
+): Promise<PaymentRecord[]> => {
+  return customFetch<PaymentRecord[]>(getAdminGetPaymentsUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getAdminGetPaymentsQueryKey = () => {
+  return [`/api/admin/payments`] as const;
+};
+
+export const getAdminGetPaymentsQueryOptions = <
+  TData = Awaited<ReturnType<typeof adminGetPayments>>,
+  TError = ErrorType<ErrorResponse>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof adminGetPayments>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getAdminGetPaymentsQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof adminGetPayments>>
+  > = ({ signal }) => adminGetPayments({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof adminGetPayments>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type AdminGetPaymentsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof adminGetPayments>>
+>;
+export type AdminGetPaymentsQueryError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary List all payment records
+ */
+
+export function useAdminGetPayments<
+  TData = Awaited<ReturnType<typeof adminGetPayments>>,
+  TError = ErrorType<ErrorResponse>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof adminGetPayments>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getAdminGetPaymentsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
 
 /**
  * Returns overview stats for the admin dashboard. Requires admin key.

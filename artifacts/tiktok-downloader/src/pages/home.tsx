@@ -19,11 +19,12 @@ import {
   useAdminSuspendUser,
   useAdminUnsuspendUser,
   useAdminDeleteUser,
+  useAdminGetPayments,
   useGetSubscriptionStatus
 } from "@workspace/api-client-react";
 import { ApiError, getApiErrorMessage } from "@/lib/api-error";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Download, History, Settings, Users, BarChart3, Lock, CheckCircle2, AlertCircle, ShieldOff, ShieldCheck, Trash2, ArrowUpCircle, HardDriveDownload, Copy, TriangleAlert, ExternalLink } from "lucide-react";
+import { Loader2, Download, History, Settings, Users, BarChart3, Lock, CheckCircle2, AlertCircle, ShieldOff, ShieldCheck, Trash2, ArrowUpCircle, HardDriveDownload, Copy, TriangleAlert, ExternalLink, CreditCard, Clock } from "lucide-react";
 import { useLocation } from "wouter";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -473,6 +474,11 @@ function AdminPanel({ adminKey, onLogout }: { adminKey: string, onLogout: () => 
     query: { ...queryOptions, queryKey: ['adminSettings', adminKey] }
   });
 
+  const { data: payments, isLoading: paymentsLoading } = useAdminGetPayments({
+    ...reqOptions,
+    query: { ...queryOptions, queryKey: ['adminPayments', adminKey] }
+  });
+
   const adminRequest = reqOptions.request;
   const updateSettingsMutation = useAdminUpdateSettings({ request: adminRequest });
   const upgradeMutation = useAdminUpgradeUser({ request: adminRequest });
@@ -573,12 +579,15 @@ function AdminPanel({ adminKey, onLogout }: { adminKey: string, onLogout: () => 
       </div>
 
       <Tabs defaultValue="overview" className="w-full">
-        <TabsList className="grid w-full grid-cols-3 mb-8">
+        <TabsList className="grid w-full grid-cols-4 mb-8">
           <TabsTrigger value="overview" className="flex items-center gap-2" data-testid="tab-overview">
             <BarChart3 className="w-4 h-4" /> Overview
           </TabsTrigger>
           <TabsTrigger value="users" className="flex items-center gap-2" data-testid="tab-users">
             <Users className="w-4 h-4" /> Users
+          </TabsTrigger>
+          <TabsTrigger value="payments" className="flex items-center gap-2" data-testid="tab-payments">
+            <CreditCard className="w-4 h-4" /> Payments
           </TabsTrigger>
           <TabsTrigger value="settings" className="flex items-center gap-2" data-testid="tab-settings">
             <Settings className="w-4 h-4" /> Settings
@@ -762,6 +771,93 @@ function AdminPanel({ adminKey, onLogout }: { adminKey: string, onLogout: () => 
                 </div>
               )}
             </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="payments">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <CreditCard className="w-5 h-5 text-primary" />
+                Payment History
+              </CardTitle>
+              <CardDescription>All subscription payments — who paid, when, and how much.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {paymentsLoading ? (
+                <div className="p-8 text-center"><Loader2 className="w-8 h-8 animate-spin mx-auto text-primary" /></div>
+              ) : (
+                <div className="rounded-md border border-border overflow-x-auto">
+                  <Table>
+                    <TableHeader className="bg-muted/50">
+                      <TableRow>
+                        <TableHead>#</TableHead>
+                        <TableHead>Name</TableHead>
+                        <TableHead>Email</TableHead>
+                        <TableHead>Phone</TableHead>
+                        <TableHead>Amount</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Reference</TableHead>
+                        <TableHead>Paid At</TableHead>
+                        <TableHead>Expires</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {payments?.map((p) => (
+                        <TableRow key={p.id}>
+                          <TableCell className="text-muted-foreground text-xs">{p.id}</TableCell>
+                          <TableCell className="font-medium whitespace-nowrap">{p.userName}</TableCell>
+                          <TableCell className="text-muted-foreground">{p.userEmail}</TableCell>
+                          <TableCell className="text-muted-foreground">{p.userPhone ?? "—"}</TableCell>
+                          <TableCell className="font-semibold text-green-400 whitespace-nowrap">
+                            {p.currency} {p.amountPaid.toLocaleString()}
+                          </TableCell>
+                          <TableCell>
+                            {p.status === "active" ? (
+                              <Badge className="bg-primary/20 text-primary hover:bg-primary/30 whitespace-nowrap">
+                                <CheckCircle2 className="w-3 h-3 mr-1" /> Paid
+                              </Badge>
+                            ) : p.status === "pending" ? (
+                              <Badge variant="secondary" className="whitespace-nowrap">
+                                <Clock className="w-3 h-3 mr-1" /> Pending
+                              </Badge>
+                            ) : (
+                              <Badge variant="destructive" className="whitespace-nowrap">{p.status}</Badge>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            {p.paymentReference ? (
+                              <span className="font-mono text-xs bg-muted px-2 py-0.5 rounded text-muted-foreground">
+                                {p.paymentReference}
+                              </span>
+                            ) : "—"}
+                          </TableCell>
+                          <TableCell className="text-muted-foreground text-sm whitespace-nowrap">
+                            {new Date(p.paidAt).toLocaleString()}
+                          </TableCell>
+                          <TableCell className="text-muted-foreground text-sm whitespace-nowrap">
+                            {new Date(p.expiresAt).toLocaleDateString()}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                      {!payments?.length && (
+                        <TableRow>
+                          <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
+                            No payment records yet.
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </CardContent>
+            {!!payments?.length && (
+              <CardFooter className="text-sm text-muted-foreground">
+                {payments.length} payment record{payments.length !== 1 ? "s" : ""} total ·{" "}
+                {payments.filter((p) => p.status === "active").length} confirmed
+              </CardFooter>
+            )}
           </Card>
         </TabsContent>
 

@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { db, usersTable, downloadsTable, subscriptionsTable } from "@workspace/db";
-import { eq, and, gt, count, sum, gte } from "drizzle-orm";
+import { eq, and, gt, count, sum, gte, desc } from "drizzle-orm";
 import { requireAdmin } from "../middlewares/requireAdmin";
 import { AdminUpdateSettingsBody } from "@workspace/api-zod";
 import { getSetting, setSetting, getAllSettings } from "../lib/settings";
@@ -146,6 +146,33 @@ router.delete("/admin/users/:id", requireAdmin, async (req, res): Promise<void> 
 
   req.log.info({ userId }, "Admin deleted user and all their data");
   res.json({ message: "User deleted" });
+});
+
+router.get("/admin/payments", requireAdmin, async (req, res): Promise<void> => {
+  const payments = await db
+    .select({
+      id: subscriptionsTable.id,
+      userId: subscriptionsTable.userId,
+      status: subscriptionsTable.status,
+      amountPaid: subscriptionsTable.amountPaid,
+      currency: subscriptionsTable.currency,
+      paymentReference: subscriptionsTable.paymentReference,
+      expiresAt: subscriptionsTable.expiresAt,
+      paidAt: subscriptionsTable.createdAt,
+      userName: usersTable.name,
+      userEmail: usersTable.email,
+      userPhone: usersTable.phone,
+    })
+    .from(subscriptionsTable)
+    .innerJoin(usersTable, eq(subscriptionsTable.userId, usersTable.id))
+    .orderBy(desc(subscriptionsTable.createdAt));
+
+  res.json(
+    payments.map((p) => ({
+      ...p,
+      amountPaid: Number(p.amountPaid),
+    }))
+  );
 });
 
 router.get("/admin/settings", requireAdmin, async (req, res): Promise<void> => {

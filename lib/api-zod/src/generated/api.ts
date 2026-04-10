@@ -308,6 +308,29 @@ export const AdminDeleteUserResponse = zod.object({
 });
 
 /**
+ * Returns all subscription payment records with user details. Requires admin key.
+ * @summary List all payment records
+ */
+export const AdminGetPaymentsHeader = zod.object({
+  "x-admin-key": zod.string(),
+});
+
+export const AdminGetPaymentsResponseItem = zod.object({
+  id: zod.number(),
+  userId: zod.number(),
+  userName: zod.string(),
+  userEmail: zod.string(),
+  userPhone: zod.string().nullish(),
+  status: zod.string(),
+  amountPaid: zod.number(),
+  currency: zod.string(),
+  paymentReference: zod.string().nullish(),
+  expiresAt: zod.coerce.date(),
+  paidAt: zod.coerce.date(),
+});
+export const AdminGetPaymentsResponse = zod.array(AdminGetPaymentsResponseItem);
+
+/**
  * Returns overview stats for the admin dashboard. Requires admin key.
  * @summary Get admin dashboard stats
  */
