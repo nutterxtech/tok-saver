@@ -315,34 +315,37 @@ router.post("/subscription/verify", requireAuth, async (req, res): Promise<void>
 
   const PAID = new Set(["success", "completed", "paid", "approved", "successful", "complete"]);
 
-  for (const url of checkUrls) {
-    try {
+  // Run all Paylor status checks in PARALLEL (max 3s each) so total wait ≤ 3s not 3×3s
+  const results = await Promise.allSettled(
+    checkUrls.map(async (url) => {
       const ctrl = new AbortController();
-      const t = setTimeout(() => ctrl.abort(), 4000);
-      const resp = await fetch(url, { headers: { Authorization: `Bearer ${paylorApiKey}` }, signal: ctrl.signal });
-      clearTimeout(t);
-      const text = await resp.text();
-      req.log.error({ url, httpStatus: resp.status, body: text.slice(0, 800), ourRef, paylorId }, "Paylor status check");
-
-      if (!resp.ok) continue;
-
-      let data: Record<string, unknown> = {};
-      try { data = JSON.parse(text); } catch { continue; }
-
-      const flat = { ...data, ...(data.data && typeof data.data === "object" ? data.data as Record<string, unknown> : {}) };
-      const txStatus = (flat.status ?? flat.payment_status ?? flat.transaction_status ?? flat.state ?? "") as string;
-
-      req.log.error({ txStatus, flat }, "Paylor status check parsed");
-
-      if (PAID.has(txStatus.toLowerCase())) {
-        await db.update(subscriptionsTable).set({ status: "active" }).where(eq(subscriptionsTable.id, pendingSub.id));
-        req.log.error({ userId, url, txStatus }, "Subscription activated via Paylor API poll");
-        res.json(await buildSubscriptionStatus(userId));
-        return;
+      const t = setTimeout(() => ctrl.abort(), 3000);
+      try {
+        const resp = await fetch(url, { headers: { Authorization: `Bearer ${paylorApiKey}` }, signal: ctrl.signal });
+        clearTimeout(t);
+        const text = await resp.text();
+        req.log.error({ url, httpStatus: resp.status, body: text.slice(0, 500), ourRef, paylorId }, "Paylor status check");
+        if (!resp.ok) return null;
+        let data: Record<string, unknown> = {};
+        try { data = JSON.parse(text); } catch { return null; }
+        const flat = { ...data, ...(data.data && typeof data.data === "object" ? data.data as Record<string, unknown> : {}) };
+        const txStatus = (flat.status ?? flat.payment_status ?? flat.transaction_status ?? flat.state ?? "") as string;
+        req.log.error({ url, txStatus }, "Paylor status check parsed");
+        return PAID.has(txStatus.toLowerCase()) ? txStatus : null;
+      } catch (err) {
+        clearTimeout(t);
+        req.log.error({ url, err }, "Paylor status check error");
+        return null;
       }
-    } catch (err) {
-      req.log.error({ url, err }, "Paylor status check error");
-    }
+    })
+  );
+
+  const successResult = results.find((r) => r.status === "fulfilled" && r.value !== null);
+  if (successResult && successResult.status === "fulfilled" && successResult.value) {
+    await db.update(subscriptionsTable).set({ status: "active" }).where(eq(subscriptionsTable.id, pendingSub.id));
+    req.log.error({ userId, txStatus: successResult.value }, "Subscription activated via Paylor API poll");
+    res.json(await buildSubscriptionStatus(userId));
+    return;
   }
 
   res.json(dbStatus);
