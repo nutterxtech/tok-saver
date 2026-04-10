@@ -191,6 +191,60 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /user/payments:
+    get:
+      operationId: getUserPayments
+      tags: [user]
+      summary: Get current user's payment history
+      description: Returns all subscription payment records for the authenticated user.
+      responses:
+        "200":
+          description: User payment records
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/UserPaymentRecord"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /user/change-password:
+    post:
+      operationId: changePassword
+      tags: [user]
+      summary: Change user password
+      description: Changes the authenticated user's password after verifying the current password.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChangePasswordBody"
+      responses:
+        "200":
+          description: Password changed successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+        "400":
+          description: Current password incorrect or validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /subscription/status:
     get:
       operationId: getSubscriptionStatus
@@ -890,6 +944,45 @@ components:
           type: ["string", "null"]
         freeDownloadsPerUser:
           type: ["integer", "null"]
+
+    UserPaymentRecord:
+      type: object
+      properties:
+        id:
+          type: integer
+        status:
+          type: string
+        amountPaid:
+          type: number
+        currency:
+          type: string
+        paymentReference:
+          type: ["string", "null"]
+        paidAt:
+          type: string
+          format: date-time
+        expiresAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - status
+        - amountPaid
+        - currency
+        - paidAt
+        - expiresAt
+
+    ChangePasswordBody:
+      type: object
+      properties:
+        currentPassword:
+          type: string
+        newPassword:
+          type: string
+          minLength: 8
+      required:
+        - currentPassword
+        - newPassword
 
     PaymentRecord:
       type: object

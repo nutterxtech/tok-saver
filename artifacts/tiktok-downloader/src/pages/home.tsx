@@ -257,11 +257,23 @@ function DownloadInterface() {
         
         {subStatus && (
           <div className="text-right">
-            {subStatus.isActive ? (
-              <Badge variant="default" className="bg-primary/20 text-primary hover:bg-primary/30 text-sm px-3 py-1">
-                Pro Subscriber
-              </Badge>
-            ) : (
+            {subStatus.isActive && subStatus.expiresAt ? (() => {
+              const daysLeft = Math.max(0, Math.ceil((new Date(subStatus.expiresAt as string).getTime() - Date.now()) / 86400000));
+              return (
+                <div className="flex flex-col items-end gap-1">
+                  <Badge variant="default" className="bg-primary/20 text-primary hover:bg-primary/30 text-sm px-3 py-1">
+                    Pro · {daysLeft}d left
+                  </Badge>
+                  {daysLeft <= 7 && (
+                    <Link href="/subscribe">
+                      <Button variant="ghost" size="sm" className="text-xs text-amber-400 h-auto p-0 hover:text-amber-300">
+                        Renew now →
+                      </Button>
+                    </Link>
+                  )}
+                </div>
+              );
+            })() : !subStatus.isActive ? (
               <div className="flex flex-col items-end">
                 <Badge variant="outline" className="text-sm px-3 py-1 mb-2">
                   {subStatus.remainingFreeDownloads} Free Downloads Left
@@ -272,7 +284,7 @@ function DownloadInterface() {
                   </Button>
                 </Link>
               </div>
-            )}
+            ) : null}
           </div>
         )}
       </div>

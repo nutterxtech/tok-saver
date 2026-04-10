@@ -22,6 +22,7 @@ import type {
   AdminStats,
   AdminUserRecord,
   AuthResponse,
+  ChangePasswordBody,
   DownloadBody,
   DownloadRecord,
   DownloadResponse,
@@ -36,6 +37,7 @@ import type {
   RegisterBody,
   SubscribeBody,
   SubscriptionStatus,
+  UserPaymentRecord,
   UserResponse,
 } from "./api.schemas";
 
@@ -608,6 +610,169 @@ export function useGetDownloadHistory<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * Returns all subscription payment records for the authenticated user.
+ * @summary Get current user's payment history
+ */
+export const getGetUserPaymentsUrl = () => {
+  return `/api/user/payments`;
+};
+
+export const getUserPayments = async (
+  options?: RequestInit,
+): Promise<UserPaymentRecord[]> => {
+  return customFetch<UserPaymentRecord[]>(getGetUserPaymentsUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetUserPaymentsQueryKey = () => {
+  return [`/api/user/payments`] as const;
+};
+
+export const getGetUserPaymentsQueryOptions = <
+  TData = Awaited<ReturnType<typeof getUserPayments>>,
+  TError = ErrorType<ErrorResponse>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getUserPayments>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetUserPaymentsQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getUserPayments>>> = ({
+    signal,
+  }) => getUserPayments({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getUserPayments>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetUserPaymentsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getUserPayments>>
+>;
+export type GetUserPaymentsQueryError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Get current user's payment history
+ */
+
+export function useGetUserPayments<
+  TData = Awaited<ReturnType<typeof getUserPayments>>,
+  TError = ErrorType<ErrorResponse>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getUserPayments>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetUserPaymentsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * Changes the authenticated user's password after verifying the current password.
+ * @summary Change user password
+ */
+export const getChangePasswordUrl = () => {
+  return `/api/user/change-password`;
+};
+
+export const changePassword = async (
+  changePasswordBody: ChangePasswordBody,
+  options?: RequestInit,
+): Promise<MessageResponse> => {
+  return customFetch<MessageResponse>(getChangePasswordUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(changePasswordBody),
+  });
+};
+
+export const getChangePasswordMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof changePassword>>,
+    TError,
+    { data: BodyType<ChangePasswordBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof changePassword>>,
+  TError,
+  { data: BodyType<ChangePasswordBody> },
+  TContext
+> => {
+  const mutationKey = ["changePassword"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof changePassword>>,
+    { data: BodyType<ChangePasswordBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return changePassword(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ChangePasswordMutationResult = NonNullable<
+  Awaited<ReturnType<typeof changePassword>>
+>;
+export type ChangePasswordMutationBody = BodyType<ChangePasswordBody>;
+export type ChangePasswordMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Change user password
+ */
+export const useChangePassword = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof changePassword>>,
+    TError,
+    { data: BodyType<ChangePasswordBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof changePassword>>,
+  TError,
+  { data: BodyType<ChangePasswordBody> },
+  TContext
+> => {
+  return useMutation(getChangePasswordMutationOptions(options));
+};
 
 /**
  * Returns the current user's subscription status

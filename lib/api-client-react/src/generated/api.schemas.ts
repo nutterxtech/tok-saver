@@ -153,6 +153,23 @@ export interface AdminSettingsUpdate {
   freeDownloadsPerUser?: number | null;
 }
 
+export interface UserPaymentRecord {
+  id: number;
+  status: string;
+  amountPaid: number;
+  currency: string;
+  /** @nullable */
+  paymentReference?: string | null;
+  paidAt: string;
+  expiresAt: string;
+}
+
+export interface ChangePasswordBody {
+  currentPassword: string;
+  /** @minLength 8 */
+  newPassword: string;
+}
+
 export interface PaymentRecord {
   id: number;
   userId: number;

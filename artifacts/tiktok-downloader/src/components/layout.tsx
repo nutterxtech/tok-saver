@@ -3,7 +3,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { usePwaInstall } from "@/hooks/use-pwa-install";
-import { Download, Share, CheckCircle2, SmartphoneNfc } from "lucide-react";
+import { Download, Share, CheckCircle2, SmartphoneNfc, UserCircle } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -83,9 +83,12 @@ export function Layout({ children }: { children: React.ReactNode }) {
               <>
                 {user ? (
                   <>
-                    <div className="text-sm text-muted-foreground hidden sm:block">
-                      {user.email}
-                    </div>
+                    <Link href="/settings">
+                      <Button variant="ghost" size="sm" className="gap-1.5 text-muted-foreground hover:text-foreground" data-testid="link-nav-account">
+                        <UserCircle className="w-4 h-4" />
+                        <span className="hidden sm:inline">Account</span>
+                      </Button>
+                    </Link>
                     {!user.hasActiveSubscription && (
                       <Link href="/subscribe">
                         <Button variant="secondary" size="sm" className="text-primary font-semibold" data-testid="link-nav-subscribe">

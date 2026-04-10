@@ -99,6 +99,36 @@ export const GetDownloadHistoryResponse = zod.array(
 );
 
 /**
+ * Returns all subscription payment records for the authenticated user.
+ * @summary Get current user's payment history
+ */
+export const GetUserPaymentsResponseItem = zod.object({
+  id: zod.number(),
+  status: zod.string(),
+  amountPaid: zod.number(),
+  currency: zod.string(),
+  paymentReference: zod.string().nullish(),
+  paidAt: zod.coerce.date(),
+  expiresAt: zod.coerce.date(),
+});
+export const GetUserPaymentsResponse = zod.array(GetUserPaymentsResponseItem);
+
+/**
+ * Changes the authenticated user's password after verifying the current password.
+ * @summary Change user password
+ */
+export const changePasswordBodyNewPasswordMin = 8;
+
+export const ChangePasswordBody = zod.object({
+  currentPassword: zod.string(),
+  newPassword: zod.string().min(changePasswordBodyNewPasswordMin),
+});
+
+export const ChangePasswordResponse = zod.object({
+  message: zod.string(),
+});
+
+/**
  * Returns the current user's subscription status
  * @summary Get subscription status
  */

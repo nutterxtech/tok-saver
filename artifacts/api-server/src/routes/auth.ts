@@ -1,7 +1,7 @@
 import { Router, type IRouter } from "express";
 import bcrypt from "bcryptjs";
 import { db, usersTable, downloadsTable, subscriptionsTable } from "@workspace/db";
-import { eq, and, gt, count } from "drizzle-orm";
+import { eq, and, gt, count, desc } from "drizzle-orm";
 import { signToken } from "../lib/auth";
 import { requireAuth } from "../middlewares/requireAuth";
 import { RegisterBody, LoginBody } from "@workspace/api-zod";
@@ -160,6 +160,66 @@ router.get("/auth/me", requireAuth, async (req, res): Promise<void> => {
     downloadsCount: Number(downloadsResult?.count ?? 0),
     hasActiveSubscription: !!activeSub,
   });
+});
+
+router.get("/user/payments", requireAuth, async (req, res): Promise<void> => {
+  const userId = req.userId!;
+  const payments = await db
+    .select({
+      id: subscriptionsTable.id,
+      status: subscriptionsTable.status,
+      amountPaid: subscriptionsTable.amountPaid,
+      currency: subscriptionsTable.currency,
+      paymentReference: subscriptionsTable.paymentReference,
+      paidAt: subscriptionsTable.createdAt,
+      expiresAt: subscriptionsTable.expiresAt,
+    })
+    .from(subscriptionsTable)
+    .where(eq(subscriptionsTable.userId, userId))
+    .orderBy(desc(subscriptionsTable.createdAt));
+
+  res.json(payments.map((p) => ({ ...p, amountPaid: Number(p.amountPaid) })));
+});
+
+router.post("/user/change-password", requireAuth, async (req, res): Promise<void> => {
+  const { currentPassword, newPassword } = req.body as {
+    currentPassword?: string;
+    newPassword?: string;
+  };
+
+  if (!currentPassword || !newPassword) {
+    res.status(400).json({ error: "Current and new password are required" });
+    return;
+  }
+  if (newPassword.length < 8) {
+    res.status(400).json({ error: "New password must be at least 8 characters" });
+    return;
+  }
+
+  const [user] = await db
+    .select()
+    .from(usersTable)
+    .where(eq(usersTable.id, req.userId!));
+
+  if (!user) {
+    res.status(404).json({ error: "User not found" });
+    return;
+  }
+
+  const valid = await bcrypt.compare(currentPassword, user.passwordHash);
+  if (!valid) {
+    res.status(400).json({ error: "Current password is incorrect" });
+    return;
+  }
+
+  const newHash = await bcrypt.hash(newPassword, 12);
+  await db
+    .update(usersTable)
+    .set({ passwordHash: newHash })
+    .where(eq(usersTable.id, req.userId!));
+
+  req.log.info({ userId: req.userId }, "User changed password");
+  res.json({ message: "Password changed successfully" });
 });
 
 export default router;
