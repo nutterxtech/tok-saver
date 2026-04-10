@@ -449,6 +449,7 @@ function AdminDashboard() {
     localStorage.removeItem("admin_key");
     setAdminKey("");
     setIsAuthenticated(false);
+    window.location.href = "/";
   }} />;
 }
 
