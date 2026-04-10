@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "buildCommand": "pnpm install && pnpm --filter @workspace/api-server run build:serverless && pnpm --filter @workspace/api-zod exec tsc -p tsconfig.json && pnpm --filter @workspace/tiktok-downloader run build",
+  "buildCommand": "pnpm install && pnpm --filter @workspace/db run push-force && pnpm --filter @workspace/api-server run build:serverless && pnpm --filter @workspace/api-zod exec tsc -p tsconfig.json && pnpm --filter @workspace/tiktok-downloader run build",
   "outputDirectory": "artifacts/tiktok-downloader/dist/public",
   "installCommand": "pnpm install",
   "framework": null,

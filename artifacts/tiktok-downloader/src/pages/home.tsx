@@ -541,7 +541,7 @@ function AdminPanel({ adminKey, onLogout }: { adminKey: string, onLogout: () => 
       subscriptionPrice: 0,
       currency: "KES",
       paylorApiKey: "",
-      paylorApiUrl: "https://paylor.webnixke.com/",
+      paylorApiUrl: "https://api.paylorke.com/api/v1",
       paylorChannelId: "",
       adminKey: "",
       freeDownloadsPerUser: 1
