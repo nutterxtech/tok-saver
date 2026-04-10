@@ -10,8 +10,8 @@ import { useToast } from "@/hooks/use-toast";
 import { Loader2, Check, ArrowLeft, Smartphone, ShieldCheck, Info, RefreshCw } from "lucide-react";
 import { useEffect, useState, useRef } from "react";
 
-const POLL_INTERVAL_MS = 4000;   // match nusawards — lightweight DB check every 4s
-const MAX_POLL_ATTEMPTS = 15;    // 15 × 4s = 60s before "taking longer" message
+const POLL_INTERVAL_MS = 2000;   // lightweight DB check every 2s — fast detection
+const MAX_POLL_ATTEMPTS = 30;    // 30 × 2s = 60s before "taking longer" message
 
 export default function Subscribe() {
   const { user, isLoading: userLoading } = useAuth();
@@ -183,10 +183,14 @@ export default function Subscribe() {
                 </div>
 
                 <div className="space-y-1.5">
-                  <h2 className="text-xl font-bold">Waiting for payment…</h2>
+                  <h2 className="text-xl font-bold">
+                    {subscribeMutation.isPending ? "Sending M-Pesa prompt…" : "Waiting for payment…"}
+                  </h2>
                   <p className="text-muted-foreground text-sm">
-                    Enter your M-Pesa PIN on <strong>{payPhone}</strong>.<br />
-                    This will confirm automatically.
+                    {subscribeMutation.isPending
+                      ? <>Contacting M-Pesa for <strong>{payPhone}</strong>. This takes a few seconds.</>
+                      : <>Enter your M-Pesa PIN on <strong>{payPhone}</strong>.<br />This will confirm automatically.</>
+                    }
                   </p>
                 </div>
 
@@ -194,19 +198,21 @@ export default function Subscribe() {
                   {secondsElapsed}s elapsed
                 </p>
 
-                {/* Manual check — calls Paylor API directly */}
-                <Button
-                  variant="outline"
-                  className="w-full border-primary/30 text-primary hover:bg-primary/10"
-                  onClick={handleManualCheck}
-                  disabled={verifyMutation.isPending}
-                  data-testid="button-check-payment"
-                >
-                  {verifyMutation.isPending
-                    ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Checking…</>
-                    : <><RefreshCw className="w-4 h-4 mr-2" /> I've Paid — Check Now</>
-                  }
-                </Button>
+                {/* Manual check — only show once the STK push has been sent */}
+                {!subscribeMutation.isPending && (
+                  <Button
+                    variant="outline"
+                    className="w-full border-primary/30 text-primary hover:bg-primary/10"
+                    onClick={handleManualCheck}
+                    disabled={verifyMutation.isPending}
+                    data-testid="button-check-payment"
+                  >
+                    {verifyMutation.isPending
+                      ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Checking…</>
+                      : <><RefreshCw className="w-4 h-4 mr-2" /> I've Paid — Check Now</>
+                    }
+                  </Button>
+                )}
 
                 <Button
                   variant="ghost"
@@ -231,11 +237,17 @@ export default function Subscribe() {
   const currency = subStatus?.currency || "KES";
 
   const handleSubscribe = () => {
+    // Show the waiting screen immediately — don't make the user stare at a
+    // loading button for 17s while Paylor sends the STK push to Safaricom.
+    // The M-Pesa prompt will arrive on their phone ~17s later.
+    setStkSent(true);
+
     subscribeMutation.mutate(
       { data: { phone: payPhone || undefined, plan } },
       {
-        onSuccess: () => setStkSent(true),
         onError: (error: unknown) => {
+          // Roll back optimistic transition if STK push itself failed
+          setStkSent(false);
           toast({
             variant: "destructive",
             title: "Payment initiation failed",
