@@ -216,7 +216,7 @@ paths:
       operationId: initiateSubscription
       tags: [subscription]
       summary: Initiate subscription payment
-      description: Creates a Paylor M-Pesa STK push session and returns the payment URL. The phone number is the M-Pesa number that will receive the payment prompt.
+      description: Initiates a Paylor M-Pesa STK push to the given phone. The user receives an M-Pesa PIN prompt on their phone; subscription activates once Paylor calls the callback webhook. The phone number is the M-Pesa number that will receive the payment prompt.
       requestBody:
         required: false
         content:
@@ -692,14 +692,19 @@ components:
     PaymentInitResponse:
       type: object
       properties:
-        paymentUrl:
+        stkSent:
+          type: boolean
+          description: True when the M-Pesa STK push was successfully sent to the user's phone.
+        message:
           type: string
+          description: Human-readable status message to show the user.
         amount:
           type: number
         currency:
           type: string
       required:
-        - paymentUrl
+        - stkSent
+        - message
         - amount
         - currency
 

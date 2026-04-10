@@ -98,6 +98,13 @@ router.post("/subscription/subscribe", requireAuth, async (req, res): Promise<vo
     // paymentUrl and never sees the token.
     const callbackUrl = `${appUrl}/api/subscription/callback?token=${callbackToken}`;
 
+    if (!paylorChannelId) {
+      res.status(500).json({ error: "Payment channel not configured. Contact the admin." });
+      return;
+    }
+
+    // Paylor STK push payload — sends an M-Pesa prompt directly to the phone.
+    // Reference: POST https://api.paylorke.com/api/v1/merchants/payments/stk-push
     const paymentPayload: Record<string, unknown> = {
       amount,
       currency,
@@ -107,14 +114,13 @@ router.post("/subscription/subscribe", requireAuth, async (req, res): Promise<vo
       name: user?.name ?? "",
       callback_url: callbackUrl,
       description: "TokSaver Monthly Subscription",
+      channelId: paylorChannelId,
     };
 
-    // channelId is required by Paylor to identify your merchant channel
-    if (paylorChannelId) {
-      paymentPayload.channelId = paylorChannelId;
-    }
+    // Paylor API base URL is stored without trailing slash (e.g. https://api.paylorke.com/api/v1)
+    const stkPushUrl = `${paylorApiUrl.replace(/\/$/, "")}/merchants/payments/stk-push`;
 
-    const paylorResponse = await fetch(`${paylorApiUrl}api/pay`, {
+    const paylorResponse = await fetch(stkPushUrl, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -123,26 +129,28 @@ router.post("/subscription/subscribe", requireAuth, async (req, res): Promise<vo
       body: JSON.stringify(paymentPayload),
     });
 
+    const paylorText = await paylorResponse.text();
+    let paylorData: Record<string, unknown> = {};
+    try { paylorData = JSON.parse(paylorText); } catch { /* non-JSON body */ }
+
     if (!paylorResponse.ok) {
-      const errorData = await paylorResponse.text();
-      req.log.error({ status: paylorResponse.status, body: errorData }, "Paylor payment initiation failed");
-      res.status(500).json({ error: "Payment initiation failed" });
+      req.log.error({ status: paylorResponse.status, body: paylorText, url: stkPushUrl }, "Paylor STK push failed");
+      const paylorMsg = (paylorData?.error as Record<string, unknown>)?.message as string | undefined
+        ?? paylorData?.message as string | undefined
+        ?? "Payment initiation failed";
+      res.status(500).json({ error: paylorMsg });
       return;
     }
 
-    const paylorData = (await paylorResponse.json()) as {
-      payment_url?: string;
-      url?: string;
-    };
+    req.log.info({ status: paylorResponse.status, body: paylorText }, "Paylor STK push initiated");
 
-    const paymentUrl = paylorData.payment_url ?? paylorData.url ?? "";
-
-    // Do NOT expose reference or callbackToken to the client.
-    // The user is redirected to paymentUrl only; Paylor holds the callback URL.
+    // Paylor STK push does not return a payment URL — it sends an M-Pesa prompt
+    // directly to the user's phone. Activation happens via the callback webhook.
     res.json({
-      paymentUrl,
+      stkSent: true,
       amount,
       currency,
+      message: "M-Pesa payment prompt sent to your phone. Enter your PIN to confirm.",
     });
   } catch (err) {
     req.log.error({ err }, "Error contacting Paylor");

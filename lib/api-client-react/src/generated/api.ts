@@ -685,7 +685,7 @@ export function useGetSubscriptionStatus<
 }
 
 /**
- * Creates a Paylor M-Pesa STK push session and returns the payment URL. The phone number is the M-Pesa number that will receive the payment prompt.
+ * Initiates a Paylor M-Pesa STK push to the given phone. The user receives an M-Pesa PIN prompt on their phone; subscription activates once Paylor calls the callback webhook. The phone number is the M-Pesa number that will receive the payment prompt.
  * @summary Initiate subscription payment
  */
 export const getInitiateSubscriptionUrl = () => {

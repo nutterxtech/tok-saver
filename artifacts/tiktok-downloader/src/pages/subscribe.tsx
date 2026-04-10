@@ -3,12 +3,12 @@ import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardFooter } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { useGetSubscriptionStatus, useInitiateSubscription } from "@workspace/api-client-react";
 import { getApiErrorMessage } from "@/lib/api-error";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, Check, ArrowLeft, Smartphone, ShieldCheck, Info } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 
 export default function Subscribe() {
   const { user, isLoading: userLoading } = useAuth();
@@ -20,6 +20,8 @@ export default function Subscribe() {
 
   const [payPhone, setPayPhone] = useState("");
   const [phoneEdited, setPhoneEdited] = useState(false);
+  const [stkSent, setStkSent] = useState(false);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
     if (!userLoading && !user) {
@@ -33,6 +35,20 @@ export default function Subscribe() {
       setPayPhone(user.phone);
     }
   }, [user?.phone, phoneEdited]);
+
+  // Poll subscription status every 5 seconds after STK push is sent
+  const { refetch: refetchStatus } = useGetSubscriptionStatus();
+  useEffect(() => {
+    if (!stkSent) return;
+    pollRef.current = setInterval(async () => {
+      const { data } = await refetchStatus();
+      if (data?.isActive) {
+        clearInterval(pollRef.current!);
+        setLocation("/");
+      }
+    }, 5000);
+    return () => { if (pollRef.current) clearInterval(pollRef.current); };
+  }, [stkSent, refetchStatus, setLocation]);
 
   if (userLoading || subLoading) {
     return (
@@ -59,6 +75,38 @@ export default function Subscribe() {
     );
   }
 
+  if (stkSent) {
+    return (
+      <div className="flex-1 flex items-center justify-center p-4">
+        <Card className="w-full max-w-md text-center shadow-lg border-primary/20">
+          <CardContent className="pt-8 pb-8 space-y-5">
+            <div className="w-16 h-16 rounded-full bg-primary/20 flex items-center justify-center mx-auto">
+              <Smartphone className="w-8 h-8 text-primary" />
+            </div>
+            <div className="space-y-2">
+              <h2 className="text-2xl font-bold">Check Your Phone</h2>
+              <p className="text-muted-foreground text-sm">
+                An M-Pesa payment prompt has been sent to <strong>{payPhone}</strong>.
+                Enter your M-Pesa PIN to complete the payment.
+              </p>
+            </div>
+            <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground bg-muted/50 rounded-lg px-4 py-3">
+              <Loader2 className="w-4 h-4 animate-spin text-primary shrink-0" />
+              Waiting for payment confirmation…
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Your subscription will activate automatically once the payment is confirmed.
+              This page will redirect you when it's done.
+            </p>
+            <Button variant="outline" size="sm" onClick={() => setStkSent(false)}>
+              Send prompt again
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   const price = subStatus?.subscriptionPrice || 49;
   const currency = subStatus?.currency || "KES";
 
@@ -66,8 +114,8 @@ export default function Subscribe() {
     subscribeMutation.mutate(
       { data: { phone: payPhone || undefined } },
       {
-        onSuccess: (data) => {
-          window.location.href = data.paymentUrl;
+        onSuccess: () => {
+          setStkSent(true);
         },
         onError: (error: unknown) => {
           toast({

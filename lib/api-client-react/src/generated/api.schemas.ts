@@ -85,7 +85,10 @@ export interface SubscriptionStatus {
 }
 
 export interface PaymentInitResponse {
-  paymentUrl: string;
+  /** True when the M-Pesa STK push was successfully sent to the user's phone. */
+  stkSent: boolean;
+  /** Human-readable status message to show the user. */
+  message: string;
   amount: number;
   currency: string;
 }
