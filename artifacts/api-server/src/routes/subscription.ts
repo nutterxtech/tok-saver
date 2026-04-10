@@ -150,7 +150,7 @@ router.post("/subscription/subscribe", requireAuth, async (req, res): Promise<vo
         .where(eq(subscriptionsTable.paymentReference, reference));
     }
 
-    req.log.info({ reference, paylorPaymentId, paylorResponse: paylorText.slice(0, 500) }, "Paylor STK push initiated");
+    req.log.error({ reference, paylorPaymentId, paylorFullResponse: paylorText.slice(0, 1000) }, "Paylor STK push initiated — full response");
     res.json({
       stkSent: true,
       reference,
