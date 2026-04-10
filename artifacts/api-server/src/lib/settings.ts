@@ -6,6 +6,7 @@ const STATIC_DEFAULTS: Record<string, string> = {
   weekly_price: "19",
   currency: "KES",
   paylor_api_key: "",
+  paylor_secret_key: "",
   paylor_api_url: "https://api.paylorke.com/api/v1",
   paylor_channel_id: "",
   paylor_webhook_secret: "",

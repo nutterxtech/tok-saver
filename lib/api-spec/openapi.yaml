@@ -956,6 +956,10 @@ components:
           type: string
         paylorApiKey:
           type: string
+          description: "Public/publishable key (pk_...) — used only for initiating STK push payments."
+        paylorSecretKey:
+          type: string
+          description: "Secret key (sk_...) — required for reading transaction status. Find in Paylor dashboard."
         paylorApiUrl:
           type: string
         paylorChannelId:
@@ -975,6 +979,7 @@ components:
         - weeklyPrice
         - currency
         - paylorApiKey
+        - paylorSecretKey
         - paylorApiUrl
         - paylorChannelId
         - paylorWebhookSecret
@@ -992,6 +997,8 @@ components:
         currency:
           type: ["string", "null"]
         paylorApiKey:
+          type: ["string", "null"]
+        paylorSecretKey:
           type: ["string", "null"]
         paylorApiUrl:
           type: ["string", "null"]

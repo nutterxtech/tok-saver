@@ -133,7 +133,10 @@ export interface AdminSettings {
   subscriptionPrice: number;
   weeklyPrice: number;
   currency: string;
+  /** Public/publishable key (pk_...) — used only for initiating STK push payments. */
   paylorApiKey: string;
+  /** Secret key (sk_...) — required for reading transaction status. Find in Paylor dashboard. */
+  paylorSecretKey: string;
   paylorApiUrl: string;
   paylorChannelId: string;
   /** Public URL of this app (e.g. https://yourapp.vercel.app). Used to build the Paylor callback URL. */
@@ -151,6 +154,8 @@ export interface AdminSettingsUpdate {
   currency?: string | null;
   /** @nullable */
   paylorApiKey?: string | null;
+  /** @nullable */
+  paylorSecretKey?: string | null;
   /** @nullable */
   paylorApiUrl?: string | null;
   /** @nullable */

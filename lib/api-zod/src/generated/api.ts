@@ -245,7 +245,8 @@ export const AdminGetSettingsResponse = zod.object({
   subscriptionPrice: zod.number(),
   weeklyPrice: zod.number(),
   currency: zod.string(),
-  paylorApiKey: zod.string(),
+  paylorApiKey: zod.string().describe("Public/publishable key (pk_...) — used only for initiating STK push payments."),
+  paylorSecretKey: zod.string().describe("Secret key (sk_...) — required for reading transaction status. Find in Paylor dashboard."),
   paylorApiUrl: zod.string(),
   paylorChannelId: zod.string(),
   appUrl: zod
@@ -270,8 +271,10 @@ export const AdminUpdateSettingsBody = zod.object({
   weeklyPrice: zod.number().nullish(),
   currency: zod.string().nullish(),
   paylorApiKey: zod.string().nullish(),
+  paylorSecretKey: zod.string().nullish(),
   paylorApiUrl: zod.string().nullish(),
   paylorChannelId: zod.string().nullish(),
+  paylorWebhookSecret: zod.string().nullish(),
   appUrl: zod.string().nullish(),
   adminKey: zod.string().nullish(),
   freeDownloadsPerUser: zod.number().nullish(),
@@ -282,6 +285,7 @@ export const AdminUpdateSettingsResponse = zod.object({
   weeklyPrice: zod.number(),
   currency: zod.string(),
   paylorApiKey: zod.string(),
+  paylorSecretKey: zod.string(),
   paylorApiUrl: zod.string(),
   paylorChannelId: zod.string(),
   appUrl: zod

@@ -61,6 +61,7 @@ const settingsSchema = z.object({
   weeklyPrice: z.coerce.number().min(0),
   currency: z.string().min(1),
   paylorApiKey: z.string(),
+  paylorSecretKey: z.string(),
   paylorApiUrl: z.string().url(),
   paylorChannelId: z.string(),
   paylorWebhookSecret: z.string(),
@@ -596,6 +597,7 @@ function AdminPanel({ adminKey, onLogout }: { adminKey: string, onLogout: () => 
       weeklyPrice: 0,
       currency: "KES",
       paylorApiKey: "",
+      paylorSecretKey: "",
       paylorApiUrl: "https://api.paylorke.com/api/v1",
       paylorChannelId: "",
       paylorWebhookSecret: "",
@@ -1063,19 +1065,39 @@ function AdminPanel({ adminKey, onLogout }: { adminKey: string, onLogout: () => 
                         <FormField control={settingsForm.control} name="paylorApiKey" render={({ field }) => (
                           <FormItem>
                             <FormLabel>
-                              API Secret Key <span className="text-destructive ml-1">*</span>
+                              Public API Key (pk_…) <span className="text-destructive ml-1">*</span>
                             </FormLabel>
                             <FormControl>
                               <Input
                                 type="password"
                                 {...field}
-                                placeholder="Paste your Paylor API key here"
+                                placeholder="pk_xxxxxxxxxxxxxxxxxxxxxxxx"
                                 data-testid="input-setting-paylor-key"
                               />
                             </FormControl>
                             <FormDescription className="text-xs space-y-1">
-                              <span className="block">Found in your Paylor dashboard under <strong>API Keys</strong>. In the table, the key starts with <code className="bg-muted px-1 rounded">pk_</code> — paste the full key here.</span>
-                              <span className="block text-amber-400/90">⚠ Do not paste the <strong>Webhook ID</strong> (the long hex string like <code className="bg-muted px-1 rounded">69bd80…</code>). That is just an identifier, not the key itself.</span>
+                              <span className="block">Found in your Paylor dashboard under <strong>API Keys</strong>. Starts with <code className="bg-muted px-1 rounded">pk_</code>. Used for sending M-Pesa prompts.</span>
+                            </FormDescription>
+                            <FormMessage />
+                          </FormItem>
+                        )} />
+
+                        <FormField control={settingsForm.control} name="paylorSecretKey" render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>
+                              Secret API Key (sk_…) <span className="text-destructive ml-1">*</span>
+                            </FormLabel>
+                            <FormControl>
+                              <Input
+                                type="password"
+                                {...field}
+                                placeholder="sk_xxxxxxxxxxxxxxxxxxxxxxxx"
+                                data-testid="input-setting-paylor-secret-key"
+                              />
+                            </FormControl>
+                            <FormDescription className="text-xs space-y-1">
+                              <span className="block">Also in <strong>API Keys</strong> — starts with <code className="bg-muted px-1 rounded">sk_</code>. Required for auto-confirming payments after the user pays.</span>
+                              <span className="block text-amber-400/90">⚠ Without this key, payments cannot be auto-confirmed — you'll need to use the Activate button manually.</span>
                             </FormDescription>
                             <FormMessage />
                           </FormItem>

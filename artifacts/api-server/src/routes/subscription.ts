@@ -320,8 +320,17 @@ router.post("/subscription/verify", requireAuth, async (req, res): Promise<void>
   }
 
   const paylorApiKey = await getSetting("paylor_api_key");
+  const paylorSecretKey = await getSetting("paylor_secret_key");
   const paylorApiUrl = await getSetting("paylor_api_url");
-  if (!paylorApiKey || !paylorApiUrl) {
+  if (!paylorApiUrl) {
+    res.json(dbStatus);
+    return;
+  }
+
+  // Secret key is required for status checks (pk_ public key is write-only for STK push).
+  // If not configured, skip the API check — rely on webhook or admin manual activation.
+  if (!paylorSecretKey) {
+    req.log.error({ txId: pendingSub.paylorPaymentId }, "paylor_secret_key not set — skipping status check, use admin Activate button or add secret key");
     res.json(dbStatus);
     return;
   }
@@ -330,18 +339,14 @@ router.post("/subscription/verify", requireAuth, async (req, res): Promise<void>
   const txId = pendingSub.paylorPaymentId;
   const PAID = new Set(["success", "completed", "paid", "approved", "successful", "complete"]);
 
-  // Try every combination of URL + auth header to beat Paylor's inconsistent auth model.
-  // /merchants/transactions/{txId} → 401 with Bearer; /merchants/payments/{txId} → timeout.
-  // Trying X-Api-Key and apikey formats as well.
+  // Use secret key with Bearer auth on both known endpoints.
+  // pk_ (public) key was confirmed to fail on all auth formats — only sk_ works here.
   type CheckSpec = { url: string; headers: Record<string, string> };
   const checks: CheckSpec[] = [
-    // Try the transactions endpoint with every auth variant
-    { url: `${baseUrl}/merchants/transactions/${txId}`, headers: { "Authorization": `Bearer ${paylorApiKey}`, Accept: "application/json" } },
-    { url: `${baseUrl}/merchants/transactions/${txId}`, headers: { "X-Api-Key": paylorApiKey, Accept: "application/json" } },
-    { url: `${baseUrl}/merchants/transactions/${txId}`, headers: { "Authorization": `apikey ${paylorApiKey}`, Accept: "application/json" } },
-    // Also try the payments endpoint (often times out but worth trying)
-    { url: `${baseUrl}/merchants/payments/${txId}`, headers: { "Authorization": `Bearer ${paylorApiKey}`, Accept: "application/json" } },
-    { url: `${baseUrl}/merchants/payments/${txId}`, headers: { "X-Api-Key": paylorApiKey, Accept: "application/json" } },
+    { url: `${baseUrl}/merchants/transactions/${txId}`, headers: { "Authorization": `Bearer ${paylorSecretKey}`, Accept: "application/json" } },
+    { url: `${baseUrl}/merchants/payments/${txId}`,     headers: { "Authorization": `Bearer ${paylorSecretKey}`, Accept: "application/json" } },
+    // Also try X-Api-Key format in case Paylor uses that for secret keys
+    { url: `${baseUrl}/merchants/transactions/${txId}`, headers: { "X-Api-Key": paylorSecretKey, Accept: "application/json" } },
   ];
 
   const results = await Promise.allSettled(
