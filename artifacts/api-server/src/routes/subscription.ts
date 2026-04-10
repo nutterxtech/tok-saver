@@ -351,7 +351,7 @@ router.post("/subscription/verify", requireAuth, async (req, res): Promise<void>
   // Paylor docs: same pk_ key is used for ALL requests (STK push + status checks).
   // Correct status endpoint: GET /merchants/payments/transactions/:id
   const ctrl = new AbortController();
-  const t = setTimeout(() => ctrl.abort(), 7000);
+  const t = setTimeout(() => ctrl.abort(), 25000);
   try {
     const url = `${baseUrl}/merchants/payments/transactions/${txId}`;
     const resp = await fetch(url, {
