@@ -1,6 +1,5 @@
 import { Link } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
-import { useLogout } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { usePwaInstall } from "@/hooks/use-pwa-install";
@@ -15,19 +14,10 @@ import {
 import { useState } from "react";
 
 export function Layout({ children }: { children: React.ReactNode }) {
-  const { user, logout: localLogout } = useAuth();
-  const logoutMutation = useLogout();
+  const { user, logout } = useAuth();
   const isAdminMode = new URLSearchParams(window.location.search).get("admin") === "true";
   const { installState, install } = usePwaInstall();
   const [showIosDialog, setShowIosDialog] = useState(false);
-
-  const handleLogout = () => {
-    logoutMutation.mutate(undefined, {
-      onSettled: () => {
-        localLogout();
-      },
-    });
-  };
 
   const handleInstall = () => {
     if (installState === "ios") {
@@ -81,7 +71,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
                         </Button>
                       </Link>
                     )}
-                    <Button variant="ghost" size="sm" onClick={handleLogout} data-testid="button-logout">
+                    <Button variant="ghost" size="sm" onClick={logout} data-testid="button-logout">
                       Logout
                     </Button>
                   </>
