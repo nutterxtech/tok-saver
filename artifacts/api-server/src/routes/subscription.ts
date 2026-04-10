@@ -211,83 +211,15 @@ router.post("/subscription/callback", async (req, res): Promise<void> => {
 
 // ---------------------------------------------------------------------------
 // Manual payment verification — user clicks "Check Payment" button.
-// First checks if callback already activated the subscription.
-// If still pending, queries Paylor's API to manually confirm the payment.
+// Reads purely from the database. The Paylor callback handler is the one
+// that flips the subscription to "active", so the DB is the source of truth.
 // ---------------------------------------------------------------------------
 router.post("/subscription/verify", requireAuth, async (req, res): Promise<void> => {
   const userId = req.userId!;
-
-  // If already active via callback, just return the status.
   const status = await buildSubscriptionStatus(userId);
-  if (status.isActive) {
-    res.json(status);
-    return;
-  }
 
-  // Find the most recent pending subscription to verify.
-  const [pendingSub] = await db
-    .select()
-    .from(subscriptionsTable)
-    .where(
-      and(
-        eq(subscriptionsTable.userId, userId),
-        eq(subscriptionsTable.status, "pending")
-      )
-    )
-    .orderBy(desc(subscriptionsTable.createdAt))
-    .limit(1);
+  req.log.info({ userId, isActive: status.isActive }, "Payment verification check (DB-only)");
 
-  if (!pendingSub) {
-    // No pending subscription — return current status (not active).
-    res.json(status);
-    return;
-  }
-
-  const paylorApiKey = await getSetting("paylor_api_key");
-  const paylorApiUrl = await getSetting("paylor_api_url");
-  const baseUrl = paylorApiUrl.replace(/\/$/, "");
-  const reference = pendingSub.paymentReference;
-
-  const SUCCESSFUL_STATUSES = new Set(["success", "completed", "paid", "approved"]);
-  let paymentConfirmed = false;
-
-  // Try Paylor's transaction lookup endpoints (best-effort).
-  const checkUrls = [
-    `${baseUrl}/merchants/payments/${reference}`,
-    `${baseUrl}/merchants/transactions/${reference}`,
-    `${baseUrl}/merchants/payments?reference=${reference}`,
-  ];
-
-  for (const url of checkUrls) {
-    try {
-      const resp = await fetch(url, {
-        headers: { Authorization: `Bearer ${paylorApiKey}` },
-      });
-      if (!resp.ok) continue;
-      const data = await resp.json() as Record<string, unknown>;
-      const txStatus = (
-        data.status ?? data.payment_status ?? data.transaction_status ?? ""
-      ) as string;
-      if (SUCCESSFUL_STATUSES.has(txStatus.toLowerCase())) {
-        paymentConfirmed = true;
-        break;
-      }
-    } catch {
-      // Try next endpoint
-    }
-  }
-
-  if (paymentConfirmed) {
-    await db
-      .update(subscriptionsTable)
-      .set({ status: "active" })
-      .where(eq(subscriptionsTable.id, pendingSub.id));
-
-    res.json(await buildSubscriptionStatus(userId));
-    return;
-  }
-
-  // Return current status (not yet confirmed).
   res.json(status);
 });
 

@@ -8,7 +8,7 @@ import { useGetSubscriptionStatus, useInitiateSubscription, useVerifyPayment } f
 import { getApiErrorMessage } from "@/lib/api-error";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, Check, ArrowLeft, Smartphone, ShieldCheck, Info, RefreshCw } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 
 export default function Subscribe() {
   const { user, isLoading: userLoading } = useAuth();
@@ -23,7 +23,8 @@ export default function Subscribe() {
   const [phoneEdited, setPhoneEdited] = useState(false);
   const [stkSent, setStkSent] = useState(false);
   const [secondsElapsed, setSecondsElapsed] = useState(0);
-  const [verifyResult, setVerifyResult] = useState<"idle" | "not_paid">("idle");
+  const [manualChecked, setManualChecked] = useState(false);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
     if (!userLoading && !user) {
@@ -38,24 +39,48 @@ export default function Subscribe() {
     }
   }, [user?.phone, phoneEdited]);
 
-  // Count up seconds after STK push so we know when to show the check button
+  // Tick a seconds counter so UI can show elapsed time
   useEffect(() => {
     if (!stkSent) { setSecondsElapsed(0); return; }
     const timer = setInterval(() => setSecondsElapsed((s) => s + 1), 1000);
     return () => clearInterval(timer);
   }, [stkSent]);
 
-  const showCheckButton = secondsElapsed >= 5;
+  // Auto-poll DB every 5 seconds after STK push for up to 3 minutes
+  useEffect(() => {
+    if (!stkSent) {
+      if (pollRef.current) clearInterval(pollRef.current);
+      return;
+    }
+    // Start polling after 5 seconds
+    const start = Date.now();
+    pollRef.current = setInterval(() => {
+      if (Date.now() - start > 3 * 60 * 1000) {
+        clearInterval(pollRef.current!);
+        return;
+      }
+      verifyMutation.mutate(undefined, {
+        onSuccess: (data) => {
+          if (data.isActive) {
+            clearInterval(pollRef.current!);
+            toast({ title: "Payment confirmed!", description: "Your Pro subscription is now active." });
+            setLocation("/");
+          }
+        },
+      });
+    }, 5000);
+    return () => { if (pollRef.current) clearInterval(pollRef.current); };
+  }, [stkSent]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const handleVerify = () => {
-    setVerifyResult("idle");
+  const handleManualCheck = () => {
+    setManualChecked(false);
     verifyMutation.mutate(undefined, {
       onSuccess: (data) => {
         if (data.isActive) {
           toast({ title: "Payment confirmed!", description: "Your Pro subscription is now active." });
           setLocation("/");
         } else {
-          setVerifyResult("not_paid");
+          setManualChecked(true);
         }
       },
       onError: (err) => {
@@ -90,6 +115,7 @@ export default function Subscribe() {
   }
 
   if (stkSent) {
+    const autoPolling = secondsElapsed < 3 * 60;
     return (
       <div className="flex-1 flex items-center justify-center p-4">
         <Card className="w-full max-w-md text-center shadow-lg border-primary/20">
@@ -106,35 +132,42 @@ export default function Subscribe() {
               </p>
             </div>
 
-            {!showCheckButton ? (
-              <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground bg-muted/50 rounded-lg px-4 py-3">
-                <Loader2 className="w-4 h-4 animate-spin text-primary shrink-0" />
-                Waiting… ({5 - secondsElapsed}s)
-              </div>
-            ) : (
-              <div className="space-y-3">
-                <Button
-                  size="lg"
-                  className="w-full font-semibold gap-2"
-                  onClick={handleVerify}
-                  disabled={verifyMutation.isPending}
-                  data-testid="button-check-payment"
-                >
-                  {verifyMutation.isPending ? (
-                    <><Loader2 className="w-5 h-5 animate-spin" /> Checking…</>
-                  ) : (
-                    <><RefreshCw className="w-5 h-5" /> I've Paid — Check Payment</>
-                  )}
-                </Button>
+            {/* Auto-checking status */}
+            <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground bg-muted/50 rounded-lg px-4 py-3">
+              {autoPolling ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin text-primary shrink-0" />
+                  Checking payment automatically… ({secondsElapsed}s)
+                </>
+              ) : (
+                <span>Auto-check stopped. Use the button below.</span>
+              )}
+            </div>
 
-                {verifyResult === "not_paid" && (
-                  <p className="text-sm text-amber-400 bg-amber-400/10 rounded-lg px-4 py-2">
-                    Payment not confirmed yet. Make sure you completed the M-Pesa prompt,
-                    then tap the button again.
-                  </p>
+            {/* Manual check */}
+            <div className="space-y-3">
+              <Button
+                size="lg"
+                className="w-full font-semibold gap-2"
+                onClick={handleManualCheck}
+                disabled={verifyMutation.isPending}
+                data-testid="button-check-payment"
+              >
+                {verifyMutation.isPending ? (
+                  <><Loader2 className="w-5 h-5 animate-spin" /> Checking…</>
+                ) : (
+                  <><RefreshCw className="w-5 h-5" /> I've Paid — Check Now</>
                 )}
-              </div>
-            )}
+              </Button>
+
+              {manualChecked && (
+                <p className="text-sm text-amber-400 bg-amber-400/10 rounded-lg px-4 py-2">
+                  Payment not confirmed yet. Make sure you completed the M-Pesa prompt, then tap the button again.
+                  If you're sure you paid, contact support at{" "}
+                  <a href="mailto:nutterxtech@gmail.com" className="underline">nutterxtech@gmail.com</a>.
+                </p>
+              )}
+            </div>
 
             <div className="flex items-center gap-2 pt-1">
               <div className="flex-1 h-px bg-border" />
@@ -142,7 +175,7 @@ export default function Subscribe() {
               <div className="flex-1 h-px bg-border" />
             </div>
 
-            <Button variant="outline" size="sm" className="w-full" onClick={() => { setStkSent(false); setVerifyResult("idle"); }}>
+            <Button variant="outline" size="sm" className="w-full" onClick={() => { setStkSent(false); setManualChecked(false); }}>
               Send prompt again
             </Button>
           </CardContent>
