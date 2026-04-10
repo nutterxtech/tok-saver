@@ -864,8 +864,9 @@ function AdminPanel({ adminKey, onLogout }: { adminKey: string, onLogout: () => 
                                 data-testid="input-setting-paylor-key"
                               />
                             </FormControl>
-                            <FormDescription className="text-xs">
-                              Found in your Paylor dashboard under <strong>Settings → API Keys</strong>. This is sent as a Bearer token with every payment request.
+                            <FormDescription className="text-xs space-y-1">
+                              <span className="block">Found in your Paylor dashboard under <strong>API Keys</strong>. In the table, the key starts with <code className="bg-muted px-1 rounded">pk_</code> — paste the full key here.</span>
+                              <span className="block text-amber-400/90">⚠ Do not paste the <strong>Webhook ID</strong> (the long hex string like <code className="bg-muted px-1 rounded">69bd80…</code>). That is just an identifier, not the key itself.</span>
                             </FormDescription>
                             <FormMessage />
                           </FormItem>
