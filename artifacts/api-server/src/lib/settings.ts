@@ -3,6 +3,7 @@ import { eq } from "drizzle-orm";
 
 const STATIC_DEFAULTS: Record<string, string> = {
   subscription_price: "49",
+  weekly_price: "19",
   currency: "KES",
   paylor_api_key: "",
   paylor_api_url: "https://api.paylorke.com/api/v1",

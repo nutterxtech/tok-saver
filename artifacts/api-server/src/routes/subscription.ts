@@ -31,6 +31,7 @@ async function buildSubscriptionStatus(userId: number) {
   const downloadsCount = Number(downloadsResult?.count ?? 0);
   const freeLimit = Number(await getSetting("free_downloads_per_user"));
   const subscriptionPrice = Number(await getSetting("subscription_price"));
+  const weeklyPrice = Number(await getSetting("weekly_price"));
   const currency = await getSetting("currency");
 
   return {
@@ -39,6 +40,7 @@ async function buildSubscriptionStatus(userId: number) {
     downloadsCount,
     remainingFreeDownloads: activeSub ? 999 : Math.max(0, freeLimit - downloadsCount),
     subscriptionPrice,
+    weeklyPrice,
     currency,
   };
 }
@@ -68,7 +70,10 @@ router.post("/subscription/subscribe", requireAuth, async (req, res): Promise<vo
   }
   const paymentPhone = normalizePhone(rawPhone);
 
-  const amount = Number(await getSetting("subscription_price"));
+  const plan = (req.body?.plan === "weekly") ? "weekly" : "monthly";
+  const monthlyPrice = Number(await getSetting("subscription_price"));
+  const weeklyPriceVal = Number(await getSetting("weekly_price"));
+  const amount = plan === "weekly" ? weeklyPriceVal : monthlyPrice;
   const currency = await getSetting("currency");
   const paylorApiKey = await getSetting("paylor_api_key");
   const paylorApiUrl = await getSetting("paylor_api_url");
@@ -87,10 +92,15 @@ router.post("/subscription/subscribe", requireAuth, async (req, res): Promise<vo
   const callbackToken = randomUUID();
 
   const expiresAt = new Date();
-  expiresAt.setMonth(expiresAt.getMonth() + 1);
+  if (plan === "weekly") {
+    expiresAt.setDate(expiresAt.getDate() + 7);
+  } else {
+    expiresAt.setMonth(expiresAt.getMonth() + 1);
+  }
 
   await db.insert(subscriptionsTable).values({
     userId,
+    plan,
     status: "pending",
     amountPaid: String(amount),
     currency,
@@ -127,7 +137,7 @@ router.post("/subscription/subscribe", requireAuth, async (req, res): Promise<vo
         email: user?.email ?? "",
         name: user?.name ?? "",
         callback_url: callbackUrl,
-        description: "TokSaver Monthly Subscription",
+        description: plan === "weekly" ? "TokSaver Weekly Subscription" : "TokSaver Monthly Subscription",
         channelId: paylorChannelId,
       }),
     });
@@ -320,24 +330,29 @@ router.post("/subscription/verify", requireAuth, async (req, res): Promise<void>
   const txId = pendingSub.paylorPaymentId;
   const PAID = new Set(["success", "completed", "paid", "approved", "successful", "complete"]);
 
-  // Use the actual Paylor transactionId — only try endpoints with the real ID
-  const checkUrls = [
-    `${baseUrl}/merchants/payments/${txId}`,
-    `${baseUrl}/merchants/transactions/${txId}`,
+  // Try every combination of URL + auth header to beat Paylor's inconsistent auth model.
+  // /merchants/transactions/{txId} → 401 with Bearer; /merchants/payments/{txId} → timeout.
+  // Trying X-Api-Key and apikey formats as well.
+  type CheckSpec = { url: string; headers: Record<string, string> };
+  const checks: CheckSpec[] = [
+    // Try the transactions endpoint with every auth variant
+    { url: `${baseUrl}/merchants/transactions/${txId}`, headers: { "Authorization": `Bearer ${paylorApiKey}`, Accept: "application/json" } },
+    { url: `${baseUrl}/merchants/transactions/${txId}`, headers: { "X-Api-Key": paylorApiKey, Accept: "application/json" } },
+    { url: `${baseUrl}/merchants/transactions/${txId}`, headers: { "Authorization": `apikey ${paylorApiKey}`, Accept: "application/json" } },
+    // Also try the payments endpoint (often times out but worth trying)
+    { url: `${baseUrl}/merchants/payments/${txId}`, headers: { "Authorization": `Bearer ${paylorApiKey}`, Accept: "application/json" } },
+    { url: `${baseUrl}/merchants/payments/${txId}`, headers: { "X-Api-Key": paylorApiKey, Accept: "application/json" } },
   ];
 
   const results = await Promise.allSettled(
-    checkUrls.map(async (url) => {
+    checks.map(async ({ url, headers }) => {
       const ctrl = new AbortController();
-      const t = setTimeout(() => ctrl.abort(), 8000);
+      const t = setTimeout(() => ctrl.abort(), 7000);
       try {
-        const resp = await fetch(url, {
-          headers: { Authorization: `Bearer ${paylorApiKey}`, Accept: "application/json" },
-          signal: ctrl.signal,
-        });
+        const resp = await fetch(url, { headers, signal: ctrl.signal });
         clearTimeout(t);
         const text = await resp.text();
-        req.log.error({ url, httpStatus: resp.status, body: text.slice(0, 800), txId }, "Paylor status");
+        req.log.error({ url, httpStatus: resp.status, body: text.slice(0, 800), txId, authType: headers["Authorization"] ?? headers["X-Api-Key"] }, "Paylor status");
         if (!resp.ok) return null;
         const data = JSON.parse(text) as Record<string, unknown>;
         const flat = { ...data, ...(data.data && typeof data.data === "object" ? data.data as Record<string, unknown> : {}) };

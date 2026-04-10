@@ -138,6 +138,7 @@ export const GetSubscriptionStatusResponse = zod.object({
   downloadsCount: zod.number(),
   remainingFreeDownloads: zod.number(),
   subscriptionPrice: zod.number(),
+  weeklyPrice: zod.number(),
   currency: zod.string(),
 });
 
@@ -152,6 +153,10 @@ export const InitiateSubscriptionBody = zod.object({
     .describe(
       "M-Pesa phone number to receive the STK push (e.g. 07XXXXXXXX or 2547XXXXXXXX). Defaults to the user's registered phone.",
     ),
+  plan: zod
+    .enum(["weekly", "monthly"])
+    .optional()
+    .describe('Subscription plan. "weekly" = 7-day access, "monthly" = 30-day access.'),
 });
 
 export const InitiateSubscriptionResponse = zod.object({
@@ -203,6 +208,7 @@ export const VerifyPaymentResponse = zod.object({
   downloadsCount: zod.number(),
   remainingFreeDownloads: zod.number(),
   subscriptionPrice: zod.number(),
+  weeklyPrice: zod.number(),
   currency: zod.string(),
 });
 
@@ -237,6 +243,7 @@ export const AdminGetSettingsHeader = zod.object({
 
 export const AdminGetSettingsResponse = zod.object({
   subscriptionPrice: zod.number(),
+  weeklyPrice: zod.number(),
   currency: zod.string(),
   paylorApiKey: zod.string(),
   paylorApiUrl: zod.string(),
@@ -260,6 +267,7 @@ export const AdminUpdateSettingsHeader = zod.object({
 
 export const AdminUpdateSettingsBody = zod.object({
   subscriptionPrice: zod.number().nullish(),
+  weeklyPrice: zod.number().nullish(),
   currency: zod.string().nullish(),
   paylorApiKey: zod.string().nullish(),
   paylorApiUrl: zod.string().nullish(),
@@ -271,6 +279,7 @@ export const AdminUpdateSettingsBody = zod.object({
 
 export const AdminUpdateSettingsResponse = zod.object({
   subscriptionPrice: zod.number(),
+  weeklyPrice: zod.number(),
   currency: zod.string(),
   paylorApiKey: zod.string(),
   paylorApiUrl: zod.string(),

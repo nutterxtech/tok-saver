@@ -21,6 +21,7 @@ export default function Subscribe() {
 
   const [payPhone, setPayPhone] = useState("");
   const [phoneEdited, setPhoneEdited] = useState(false);
+  const [plan, setPlan] = useState<"weekly" | "monthly">("monthly");
   const [stkSent, setStkSent] = useState(false);
   const [secondsElapsed, setSecondsElapsed] = useState(0);
   const [timedOut, setTimedOut] = useState(false);
@@ -158,12 +159,14 @@ export default function Subscribe() {
     );
   }
 
-  const price = subStatus?.subscriptionPrice || 49;
+  const monthlyPrice = subStatus?.subscriptionPrice || 49;
+  const weeklyPrice = subStatus?.weeklyPrice || 19;
+  const price = plan === "weekly" ? weeklyPrice : monthlyPrice;
   const currency = subStatus?.currency || "KES";
 
   const handleSubscribe = () => {
     subscribeMutation.mutate(
-      { data: { phone: payPhone || undefined } },
+      { data: { phone: payPhone || undefined, plan } },
       {
         onSuccess: () => setStkSent(true),
         onError: (error: unknown) => {
@@ -200,9 +203,36 @@ export default function Subscribe() {
             <p className="text-sm font-semibold text-primary uppercase tracking-widest">Pro Plan</p>
             <h1 className="text-4xl font-extrabold tracking-tight">Unlock Unlimited</h1>
             <p className="text-muted-foreground">Full access to all features</p>
-            <div className="pt-4">
+
+            {/* Plan toggle */}
+            <div className="flex items-center justify-center gap-2 pt-4">
+              <button
+                onClick={() => setPlan("weekly")}
+                className={`flex-1 max-w-[140px] rounded-xl py-2.5 text-sm font-semibold transition-all border ${
+                  plan === "weekly"
+                    ? "bg-primary text-primary-foreground border-primary shadow-md"
+                    : "bg-background text-muted-foreground border-border hover:border-primary/50"
+                }`}
+              >
+                Weekly
+                <div className={`text-xs font-normal ${plan === "weekly" ? "opacity-80" : "text-muted-foreground"}`}>{currency} {weeklyPrice}</div>
+              </button>
+              <button
+                onClick={() => setPlan("monthly")}
+                className={`flex-1 max-w-[140px] rounded-xl py-2.5 text-sm font-semibold transition-all border ${
+                  plan === "monthly"
+                    ? "bg-primary text-primary-foreground border-primary shadow-md"
+                    : "bg-background text-muted-foreground border-border hover:border-primary/50"
+                }`}
+              >
+                Monthly
+                <div className={`text-xs font-normal ${plan === "monthly" ? "opacity-80" : "text-muted-foreground"}`}>{currency} {monthlyPrice} <span className="text-[10px]">save more</span></div>
+              </button>
+            </div>
+
+            <div className="pt-2">
               <span className="text-6xl font-black">{currency} {price}</span>
-              <span className="text-xl text-muted-foreground font-medium">/month</span>
+              <span className="text-xl text-muted-foreground font-medium">/{plan === "weekly" ? "week" : "month"}</span>
             </div>
           </div>
 

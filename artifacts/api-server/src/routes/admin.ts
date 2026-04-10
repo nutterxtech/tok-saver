@@ -228,6 +228,7 @@ router.get("/admin/settings", requireAdmin, async (req, res): Promise<void> => {
   const settings = await getAllSettings();
   res.json({
     subscriptionPrice: Number(settings.subscription_price ?? 49),
+    weeklyPrice: Number(settings.weekly_price ?? 19),
     currency: settings.currency ?? "KES",
     paylorApiKey: settings.paylor_api_key ?? "",
     paylorApiUrl: settings.paylor_api_url ?? "https://api.paylorke.com/api/v1",
@@ -249,6 +250,9 @@ router.put("/admin/settings", requireAdmin, async (req, res): Promise<void> => {
 
   if (updates.subscriptionPrice != null) {
     await setSetting("subscription_price", String(updates.subscriptionPrice));
+  }
+  if (updates.weeklyPrice != null) {
+    await setSetting("weekly_price", String(updates.weeklyPrice));
   }
   if (updates.currency != null) {
     await setSetting("currency", updates.currency);
@@ -278,6 +282,7 @@ router.put("/admin/settings", requireAdmin, async (req, res): Promise<void> => {
   const settings = await getAllSettings();
   res.json({
     subscriptionPrice: Number(settings.subscription_price ?? 49),
+    weeklyPrice: Number(settings.weekly_price ?? 19),
     currency: settings.currency ?? "KES",
     paylorApiKey: settings.paylor_api_key ?? "",
     paylorApiUrl: settings.paylor_api_url ?? "https://api.paylorke.com/api/v1",

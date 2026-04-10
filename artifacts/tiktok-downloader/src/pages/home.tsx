@@ -58,6 +58,7 @@ const adminKeySchema = z.object({
 // --- Admin Settings Form Schema ---
 const settingsSchema = z.object({
   subscriptionPrice: z.coerce.number().min(0),
+  weeklyPrice: z.coerce.number().min(0),
   currency: z.string().min(1),
   paylorApiKey: z.string(),
   paylorApiUrl: z.string().url(),
@@ -592,6 +593,7 @@ function AdminPanel({ adminKey, onLogout }: { adminKey: string, onLogout: () => 
     resolver: zodResolver(settingsSchema),
     defaultValues: {
       subscriptionPrice: 0,
+      weeklyPrice: 0,
       currency: "KES",
       paylorApiKey: "",
       paylorApiUrl: "https://api.paylorke.com/api/v1",
@@ -984,11 +986,21 @@ function AdminPanel({ adminKey, onLogout }: { adminKey: string, onLogout: () => 
                     <div className="grid grid-cols-2 gap-4">
                       <FormField control={settingsForm.control} name="subscriptionPrice" render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Subscription Price</FormLabel>
+                          <FormLabel>Monthly Price</FormLabel>
                           <FormControl><Input type="number" {...field} data-testid="input-setting-price" /></FormControl>
                           <FormMessage />
                         </FormItem>
                       )} />
+                      <FormField control={settingsForm.control} name="weeklyPrice" render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Weekly Price</FormLabel>
+                          <FormControl><Input type="number" {...field} data-testid="input-setting-weekly-price" /></FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )} />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
                       <FormField control={settingsForm.control} name="currency" render={({ field }) => (
                         <FormItem>
                           <FormLabel>Currency</FormLabel>
@@ -996,15 +1008,14 @@ function AdminPanel({ adminKey, onLogout }: { adminKey: string, onLogout: () => 
                           <FormMessage />
                         </FormItem>
                       )} />
-                    </div>
-
-                    <FormField control={settingsForm.control} name="freeDownloadsPerUser" render={({ field }) => (
+                      <FormField control={settingsForm.control} name="freeDownloadsPerUser" render={({ field }) => (
                         <FormItem>
                           <FormLabel>Free Downloads Per User</FormLabel>
                           <FormControl><Input type="number" {...field} data-testid="input-setting-free-dl" /></FormControl>
                           <FormMessage />
                         </FormItem>
-                    )} />
+                      )} />
+                    </div>
 
                     <div className="pt-4 border-t border-border space-y-5">
                       <div>

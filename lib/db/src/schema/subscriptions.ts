@@ -6,6 +6,7 @@ export const subscriptionsTable = pgTable("subscriptions", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").notNull(),
   status: text("status").notNull().default("active"),
+  plan: text("plan").notNull().default("monthly"),
   amountPaid: numeric("amount_paid", { precision: 10, scale: 2 }).notNull(),
   currency: text("currency").notNull().default("KES"),
   paymentReference: text("payment_reference"),

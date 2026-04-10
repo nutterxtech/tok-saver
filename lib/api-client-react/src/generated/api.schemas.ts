@@ -47,6 +47,8 @@ export interface AuthResponse {
 export interface SubscribeBody {
   /** M-Pesa phone number to receive the STK push (e.g. 07XXXXXXXX or 2547XXXXXXXX). Defaults to the user's registered phone. */
   phone?: string;
+  /** Subscription plan. "weekly" = 7-day access, "monthly" = 30-day access. */
+  plan?: "weekly" | "monthly";
 }
 
 export interface DownloadBody {
@@ -81,6 +83,7 @@ export interface SubscriptionStatus {
   downloadsCount: number;
   remainingFreeDownloads: number;
   subscriptionPrice: number;
+  weeklyPrice: number;
   currency: string;
 }
 
@@ -128,6 +131,7 @@ export interface AdminUserRecord {
 
 export interface AdminSettings {
   subscriptionPrice: number;
+  weeklyPrice: number;
   currency: string;
   paylorApiKey: string;
   paylorApiUrl: string;
@@ -141,6 +145,8 @@ export interface AdminSettings {
 export interface AdminSettingsUpdate {
   /** @nullable */
   subscriptionPrice?: number | null;
+  /** @nullable */
+  weeklyPrice?: number | null;
   /** @nullable */
   currency?: string | null;
   /** @nullable */
