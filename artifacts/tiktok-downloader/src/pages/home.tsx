@@ -17,6 +17,7 @@ import {
   useAdminUpdateSettings,
   useGetSubscriptionStatus
 } from "@workspace/api-client-react";
+import { ApiError, getApiErrorMessage } from "@/lib/api-error";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, Download, History, Settings, Users, BarChart3, Lock, CheckCircle2, AlertCircle } from "lucide-react";
 import { useLocation } from "wouter";
@@ -146,19 +147,19 @@ function DownloadInterface() {
           refetchHistory();
           refetchSubStatus();
         },
-        onError: (error: any) => {
-          if (error.status === 402) {
+        onError: (error: unknown) => {
+          if (error instanceof ApiError && error.status === 402) {
              toast({
                variant: "destructive",
                title: "Subscription Required",
-               description: error.data?.error || "You have used your free downloads.",
+               description: getApiErrorMessage(error, "You have used your free downloads."),
              });
              setLocation("/subscribe");
           } else {
             toast({
               variant: "destructive",
               title: "Error",
-              description: error.data?.error || "Failed to download video",
+              description: getApiErrorMessage(error, "Failed to download video"),
             });
           }
         },
@@ -395,7 +396,7 @@ function AdminPanel({ adminKey, onLogout }: { adminKey: string, onLogout: () => 
   });
 
   // Handle unauthorized admin key
-  if (statsError && (statsError as any).status === 401) {
+  if (statsError instanceof ApiError && statsError.status === 401) {
     onLogout();
     toast({ variant: "destructive", title: "Unauthorized", description: "Invalid admin key" });
     return null;
@@ -539,7 +540,7 @@ function AdminPanel({ adminKey, onLogout }: { adminKey: string, onLogout: () => 
                       { data: values, ...reqOptions },
                       {
                         onSuccess: () => toast({ title: "Settings updated", description: "Changes saved successfully" }),
-                        onError: (e: any) => toast({ variant: "destructive", title: "Error", description: e.data?.error || "Failed to update settings" })
+                        onError: (e: unknown) => toast({ variant: "destructive", title: "Error", description: getApiErrorMessage(e, "Failed to update settings") })
                       }
                     );
                   })} className="space-y-6">

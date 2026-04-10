@@ -3,6 +3,7 @@ import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { useGetSubscriptionStatus, useInitiateSubscription } from "@workspace/api-client-react";
+import { getApiErrorMessage } from "@/lib/api-error";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, Check } from "lucide-react";
 import { useEffect } from "react";
@@ -51,11 +52,11 @@ export default function Subscribe() {
       onSuccess: (data) => {
         window.location.href = data.paymentUrl;
       },
-      onError: (error: any) => {
+      onError: (error: unknown) => {
         toast({
           variant: "destructive",
           title: "Payment initiation failed",
-          description: error.data?.error || "Could not start payment process.",
+          description: getApiErrorMessage(error, "Could not start payment process."),
         });
       }
     });

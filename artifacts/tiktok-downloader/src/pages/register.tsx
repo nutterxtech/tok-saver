@@ -2,6 +2,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { useRegister } from "@workspace/api-client-react";
+import { getApiErrorMessage } from "@/lib/api-error";
 import { useAuth } from "@/hooks/use-auth";
 import { useLocation, Link } from "wouter";
 import { Button } from "@/components/ui/button";
@@ -46,11 +47,11 @@ export default function Register() {
           });
           setLocation("/");
         },
-        onError: (error: any) => {
+        onError: (error: unknown) => {
           toast({
             variant: "destructive",
             title: "Registration failed",
-            description: error.data?.error || "Could not create account. Please try again.",
+            description: getApiErrorMessage(error, "Could not create account. Please try again."),
           });
         },
       }

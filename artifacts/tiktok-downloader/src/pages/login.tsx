@@ -2,6 +2,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { useLogin } from "@workspace/api-client-react";
+import { getApiErrorMessage } from "@/lib/api-error";
 import { useAuth } from "@/hooks/use-auth";
 import { useLocation, Link } from "wouter";
 import { Button } from "@/components/ui/button";
@@ -42,11 +43,11 @@ export default function Login() {
           });
           setLocation("/");
         },
-        onError: (error: any) => {
+        onError: (error: unknown) => {
           toast({
             variant: "destructive",
             title: "Login failed",
-            description: error.data?.error || "Please check your credentials and try again.",
+            description: getApiErrorMessage(error, "Please check your credentials and try again."),
           });
         },
       }

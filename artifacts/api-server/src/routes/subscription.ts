@@ -56,12 +56,28 @@ router.post("/subscription/subscribe", requireAuth, async (req, res): Promise<vo
   const paylorApiKey = await getSetting("paylor_api_key");
   const paylorApiUrl = await getSetting("paylor_api_url");
 
-  const reference = `TKT-${userId}-${Date.now()}`;
-
   if (!paylorApiKey || !paylorApiUrl) {
     res.status(500).json({ error: "Payment gateway not configured" });
     return;
   }
+
+  const reference = `TKT-${userId}-${Date.now()}`;
+
+  // Store a pending subscription record before contacting the gateway.
+  // The callback handler will only activate subscriptions that have a
+  // matching pending record, preventing unauthenticated callers from
+  // manufacturing fake successful callbacks.
+  const expiresAt = new Date();
+  expiresAt.setMonth(expiresAt.getMonth() + 1);
+
+  await db.insert(subscriptionsTable).values({
+    userId,
+    status: "pending",
+    amountPaid: String(amount),
+    currency,
+    paymentReference: reference,
+    expiresAt,
+  });
 
   try {
     const callbackUrl = `${process.env.APP_URL ?? ""}/api/subscription/callback`;
@@ -121,27 +137,34 @@ router.post("/subscription/callback", async (req, res): Promise<void> => {
 
   req.log.info({ reference, status, amount }, "Paylor callback received");
 
-  if (status === "success" || status === "completed" || status === "paid") {
-    const refParts = reference.split("-");
-    const userId = parseInt(refParts[1] ?? "0", 10);
-    if (!userId) {
-      res.status(400).json({ error: "Invalid reference" });
+  const SUCCESSFUL_STATUSES = new Set(["success", "completed", "paid"]);
+
+  if (SUCCESSFUL_STATUSES.has(status)) {
+    // Only activate subscriptions that were explicitly created as pending.
+    // This prevents an attacker from crafting a fake reference and gaining
+    // a subscription without payment.
+    const [pendingSub] = await db
+      .select()
+      .from(subscriptionsTable)
+      .where(
+        and(
+          eq(subscriptionsTable.paymentReference, reference),
+          eq(subscriptionsTable.status, "pending")
+        )
+      );
+
+    if (!pendingSub) {
+      req.log.warn({ reference }, "Callback received for unknown or already-processed reference");
+      res.status(400).json({ error: "Unknown or already processed payment reference" });
       return;
     }
 
-    const expiresAt = new Date();
-    expiresAt.setMonth(expiresAt.getMonth() + 1);
+    await db
+      .update(subscriptionsTable)
+      .set({ status: "active" })
+      .where(eq(subscriptionsTable.id, pendingSub.id));
 
-    await db.insert(subscriptionsTable).values({
-      userId,
-      status: "active",
-      amountPaid: String(amount),
-      currency: await getSetting("currency"),
-      paymentReference: reference,
-      expiresAt,
-    });
-
-    req.log.info({ userId, reference }, "Subscription activated");
+    req.log.info({ userId: pendingSub.userId, reference }, "Subscription activated");
   }
 
   res.json({ message: "Callback processed" });
