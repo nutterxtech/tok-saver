@@ -135,7 +135,22 @@ router.post("/subscription/subscribe", requireAuth, async (req, res): Promise<vo
       return;
     }
 
-    req.log.info({ reference, body: paylorText }, "Paylor STK push initiated");
+    // Extract Paylor's own payment/transaction ID from the response for future status checks
+    let paylorPaymentId: string | null = null;
+    try {
+      const d = paylorData as Record<string, unknown>;
+      const inner = (d.data && typeof d.data === "object" ? d.data : d) as Record<string, unknown>;
+      paylorPaymentId = (inner.paymentId ?? inner.payment_id ?? inner.transactionId ??
+        inner.transaction_id ?? inner.id ?? inner.reference ?? null) as string | null;
+    } catch { /* ignore */ }
+
+    if (paylorPaymentId) {
+      await db.update(subscriptionsTable)
+        .set({ paylorPaymentId })
+        .where(eq(subscriptionsTable.paymentReference, reference));
+    }
+
+    req.log.info({ reference, paylorPaymentId, paylorResponse: paylorText.slice(0, 500) }, "Paylor STK push initiated");
     res.json({
       stkSent: true,
       reference,
@@ -212,17 +227,88 @@ router.post("/subscription/callback", async (req, res): Promise<void> => {
 });
 
 // ---------------------------------------------------------------------------
-// Manual payment verification — user clicks "Check Payment" button.
-// Reads purely from the database. The Paylor callback handler is the one
-// that flips the subscription to "active", so the DB is the source of truth.
+// Payment verification — checks DB first, then falls back to Paylor API.
+// Paylor's callback_url per-request may not work as a server webhook;
+// Paylor may require the webhook URL to be configured in their dashboard.
+// This fallback polls their status API so payment confirms regardless.
 // ---------------------------------------------------------------------------
 router.post("/subscription/verify", requireAuth, async (req, res): Promise<void> => {
   const userId = req.userId!;
-  const status = await buildSubscriptionStatus(userId);
 
-  req.log.info({ userId, isActive: status.isActive }, "Payment verification check (DB-only)");
+  // 1. Check DB — if callback already activated it, return immediately
+  const dbStatus = await buildSubscriptionStatus(userId);
+  if (dbStatus.isActive) {
+    res.json(dbStatus);
+    return;
+  }
 
-  res.json(status);
+  // 2. Find the most recent pending subscription
+  const [pendingSub] = await db
+    .select()
+    .from(subscriptionsTable)
+    .where(and(eq(subscriptionsTable.userId, userId), eq(subscriptionsTable.status, "pending")))
+    .orderBy(desc(subscriptionsTable.createdAt))
+    .limit(1);
+
+  if (!pendingSub) {
+    res.json(dbStatus);
+    return;
+  }
+
+  // 3. Fall back: query Paylor's API for payment status
+  const paylorApiKey = await getSetting("paylor_api_key");
+  const paylorApiUrl = await getSetting("paylor_api_url");
+  if (!paylorApiKey || !paylorApiUrl) {
+    res.json(dbStatus);
+    return;
+  }
+
+  const baseUrl = paylorApiUrl.replace(/\/$/, "");
+  const ourRef = pendingSub.paymentReference ?? "";
+  const paylorId = pendingSub.paylorPaymentId ?? "";
+
+  // Try multiple endpoint patterns — log every response at error level so it's visible in Vercel
+  const checkUrls = [
+    paylorId ? `${baseUrl}/merchants/payments/${paylorId}` : null,
+    `${baseUrl}/merchants/payments/${ourRef}`,
+    `${baseUrl}/merchants/transactions/${ourRef}`,
+    paylorId ? `${baseUrl}/merchants/transactions/${paylorId}` : null,
+    `${baseUrl}/merchants/payments?reference=${ourRef}`,
+  ].filter(Boolean) as string[];
+
+  const PAID = new Set(["success", "completed", "paid", "approved", "successful", "complete"]);
+
+  for (const url of checkUrls) {
+    try {
+      const ctrl = new AbortController();
+      const t = setTimeout(() => ctrl.abort(), 4000);
+      const resp = await fetch(url, { headers: { Authorization: `Bearer ${paylorApiKey}` }, signal: ctrl.signal });
+      clearTimeout(t);
+      const text = await resp.text();
+      req.log.error({ url, httpStatus: resp.status, body: text.slice(0, 800), ourRef, paylorId }, "Paylor status check");
+
+      if (!resp.ok) continue;
+
+      let data: Record<string, unknown> = {};
+      try { data = JSON.parse(text); } catch { continue; }
+
+      const flat = { ...data, ...(data.data && typeof data.data === "object" ? data.data as Record<string, unknown> : {}) };
+      const txStatus = (flat.status ?? flat.payment_status ?? flat.transaction_status ?? flat.state ?? "") as string;
+
+      req.log.error({ txStatus, flat }, "Paylor status check parsed");
+
+      if (PAID.has(txStatus.toLowerCase())) {
+        await db.update(subscriptionsTable).set({ status: "active" }).where(eq(subscriptionsTable.id, pendingSub.id));
+        req.log.error({ userId, url, txStatus }, "Subscription activated via Paylor API poll");
+        res.json(await buildSubscriptionStatus(userId));
+        return;
+      }
+    } catch (err) {
+      req.log.error({ url, err }, "Paylor status check error");
+    }
+  }
+
+  res.json(dbStatus);
 });
 
 export default router;

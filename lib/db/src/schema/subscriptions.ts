@@ -10,6 +10,7 @@ export const subscriptionsTable = pgTable("subscriptions", {
   currency: text("currency").notNull().default("KES"),
   paymentReference: text("payment_reference"),
   callbackToken: text("callback_token"),
+  paylorPaymentId: text("paylor_payment_id"),
   expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
