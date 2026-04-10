@@ -4,11 +4,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
-import { useGetSubscriptionStatus, useInitiateSubscription } from "@workspace/api-client-react";
+import { useGetSubscriptionStatus, useInitiateSubscription, useVerifyPayment } from "@workspace/api-client-react";
 import { getApiErrorMessage } from "@/lib/api-error";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Check, ArrowLeft, Smartphone, ShieldCheck, Info } from "lucide-react";
-import { useEffect, useState, useRef } from "react";
+import { Loader2, Check, ArrowLeft, Smartphone, ShieldCheck, Info, RefreshCw } from "lucide-react";
+import { useEffect, useState } from "react";
 
 export default function Subscribe() {
   const { user, isLoading: userLoading } = useAuth();
@@ -17,11 +17,13 @@ export default function Subscribe() {
 
   const { data: subStatus, isLoading: subLoading } = useGetSubscriptionStatus();
   const subscribeMutation = useInitiateSubscription();
+  const verifyMutation = useVerifyPayment();
 
   const [payPhone, setPayPhone] = useState("");
   const [phoneEdited, setPhoneEdited] = useState(false);
   const [stkSent, setStkSent] = useState(false);
-  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [secondsElapsed, setSecondsElapsed] = useState(0);
+  const [verifyResult, setVerifyResult] = useState<"idle" | "not_paid">("idle");
 
   useEffect(() => {
     if (!userLoading && !user) {
@@ -36,19 +38,31 @@ export default function Subscribe() {
     }
   }, [user?.phone, phoneEdited]);
 
-  // Poll subscription status every 5 seconds after STK push is sent
-  const { refetch: refetchStatus } = useGetSubscriptionStatus();
+  // Count up seconds after STK push so we know when to show the check button
   useEffect(() => {
-    if (!stkSent) return;
-    pollRef.current = setInterval(async () => {
-      const { data } = await refetchStatus();
-      if (data?.isActive) {
-        clearInterval(pollRef.current!);
-        setLocation("/");
-      }
-    }, 5000);
-    return () => { if (pollRef.current) clearInterval(pollRef.current); };
-  }, [stkSent, refetchStatus, setLocation]);
+    if (!stkSent) { setSecondsElapsed(0); return; }
+    const timer = setInterval(() => setSecondsElapsed((s) => s + 1), 1000);
+    return () => clearInterval(timer);
+  }, [stkSent]);
+
+  const showCheckButton = secondsElapsed >= 5;
+
+  const handleVerify = () => {
+    setVerifyResult("idle");
+    verifyMutation.mutate(undefined, {
+      onSuccess: (data) => {
+        if (data.isActive) {
+          toast({ title: "Payment confirmed!", description: "Your Pro subscription is now active." });
+          setLocation("/");
+        } else {
+          setVerifyResult("not_paid");
+        }
+      },
+      onError: (err) => {
+        toast({ variant: "destructive", title: "Verification failed", description: getApiErrorMessage(err) });
+      },
+    });
+  };
 
   if (userLoading || subLoading) {
     return (
@@ -83,22 +97,52 @@ export default function Subscribe() {
             <div className="w-16 h-16 rounded-full bg-primary/20 flex items-center justify-center mx-auto">
               <Smartphone className="w-8 h-8 text-primary" />
             </div>
+
             <div className="space-y-2">
               <h2 className="text-2xl font-bold">Check Your Phone</h2>
               <p className="text-muted-foreground text-sm">
-                An M-Pesa payment prompt has been sent to <strong>{payPhone}</strong>.
+                An M-Pesa prompt was sent to <strong>{payPhone}</strong>.{" "}
                 Enter your M-Pesa PIN to complete the payment.
               </p>
             </div>
-            <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground bg-muted/50 rounded-lg px-4 py-3">
-              <Loader2 className="w-4 h-4 animate-spin text-primary shrink-0" />
-              Waiting for payment confirmation…
+
+            {!showCheckButton ? (
+              <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground bg-muted/50 rounded-lg px-4 py-3">
+                <Loader2 className="w-4 h-4 animate-spin text-primary shrink-0" />
+                Waiting… ({5 - secondsElapsed}s)
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <Button
+                  size="lg"
+                  className="w-full font-semibold gap-2"
+                  onClick={handleVerify}
+                  disabled={verifyMutation.isPending}
+                  data-testid="button-check-payment"
+                >
+                  {verifyMutation.isPending ? (
+                    <><Loader2 className="w-5 h-5 animate-spin" /> Checking…</>
+                  ) : (
+                    <><RefreshCw className="w-5 h-5" /> I've Paid — Check Payment</>
+                  )}
+                </Button>
+
+                {verifyResult === "not_paid" && (
+                  <p className="text-sm text-amber-400 bg-amber-400/10 rounded-lg px-4 py-2">
+                    Payment not confirmed yet. Make sure you completed the M-Pesa prompt,
+                    then tap the button again.
+                  </p>
+                )}
+              </div>
+            )}
+
+            <div className="flex items-center gap-2 pt-1">
+              <div className="flex-1 h-px bg-border" />
+              <span className="text-xs text-muted-foreground">or</span>
+              <div className="flex-1 h-px bg-border" />
             </div>
-            <p className="text-xs text-muted-foreground">
-              Your subscription will activate automatically once the payment is confirmed.
-              This page will redirect you when it's done.
-            </p>
-            <Button variant="outline" size="sm" onClick={() => setStkSent(false)}>
+
+            <Button variant="outline" size="sm" className="w-full" onClick={() => { setStkSent(false); setVerifyResult("idle"); }}>
               Send prompt again
             </Button>
           </CardContent>
@@ -114,9 +158,7 @@ export default function Subscribe() {
     subscribeMutation.mutate(
       { data: { phone: payPhone || undefined } },
       {
-        onSuccess: () => {
-          setStkSent(true);
-        },
+        onSuccess: () => setStkSent(true),
         onError: (error: unknown) => {
           toast({
             variant: "destructive",
@@ -188,18 +230,14 @@ export default function Subscribe() {
                 type="tel"
                 placeholder="07XXXXXXXX or 2547XXXXXXXX"
                 value={payPhone}
-                onChange={(e) => {
-                  setPayPhone(e.target.value);
-                  setPhoneEdited(true);
-                }}
+                onChange={(e) => { setPayPhone(e.target.value); setPhoneEdited(true); }}
                 className="bg-background text-base h-11"
                 data-testid="input-pay-phone"
               />
 
               <p className="flex items-start gap-2 text-xs text-muted-foreground leading-relaxed">
                 <Info className="w-3.5 h-3.5 shrink-0 mt-0.5" />
-                This is the M-Pesa number that will receive the payment prompt (STK push).
-                It can be different from your registered number.
+                The M-Pesa prompt will be sent to this number. It can differ from your registered number.
               </p>
             </div>
 
@@ -211,7 +249,7 @@ export default function Subscribe() {
               data-testid="button-subscribe-now"
             >
               {subscribeMutation.isPending ? (
-                <><Loader2 className="w-5 h-5 mr-2 animate-spin" /> Processing…</>
+                <><Loader2 className="w-5 h-5 mr-2 animate-spin" /> Sending prompt…</>
               ) : (
                 <>Pay {currency} {price} via M-Pesa</>
               )}

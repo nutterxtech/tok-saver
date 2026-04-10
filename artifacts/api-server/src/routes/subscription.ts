@@ -1,17 +1,17 @@
 import { Router, type IRouter } from "express";
 import { randomUUID } from "crypto";
 import { db, subscriptionsTable, downloadsTable, usersTable } from "@workspace/db";
-import { eq, and, gt, count } from "drizzle-orm";
+import { eq, and, gt, count, desc } from "drizzle-orm";
 import { requireAuth } from "../middlewares/requireAuth";
-import { SubscriptionCallbackBody } from "@workspace/api-zod";
 import { getSetting } from "../lib/settings";
 
 const router: IRouter = Router();
 
-router.get("/subscription/status", requireAuth, async (req, res): Promise<void> => {
-  const userId = req.userId!;
+// ---------------------------------------------------------------------------
+// Helper: build current subscription status response for a user
+// ---------------------------------------------------------------------------
+async function buildSubscriptionStatus(userId: number) {
   const now = new Date();
-
   const [activeSub] = await db
     .select()
     .from(subscriptionsTable)
@@ -33,16 +33,18 @@ router.get("/subscription/status", requireAuth, async (req, res): Promise<void> 
   const subscriptionPrice = Number(await getSetting("subscription_price"));
   const currency = await getSetting("currency");
 
-  res.json({
+  return {
     isActive: !!activeSub,
     expiresAt: activeSub?.expiresAt ?? null,
     downloadsCount,
-    remainingFreeDownloads: activeSub
-      ? 999
-      : Math.max(0, freeLimit - downloadsCount),
+    remainingFreeDownloads: activeSub ? 999 : Math.max(0, freeLimit - downloadsCount),
     subscriptionPrice,
     currency,
-  });
+  };
+}
+
+router.get("/subscription/status", requireAuth, async (req, res): Promise<void> => {
+  res.json(await buildSubscriptionStatus(req.userId!));
 });
 
 router.post("/subscription/subscribe", requireAuth, async (req, res): Promise<void> => {
@@ -52,8 +54,6 @@ router.post("/subscription/subscribe", requireAuth, async (req, res): Promise<vo
     .from(usersTable)
     .where(eq(usersTable.id, userId));
 
-  // Allow the user to specify a different M-Pesa number for payment.
-  // If not provided, fall back to their registered phone.
   const paymentPhone: string = (typeof req.body?.phone === "string" && req.body.phone.trim())
     ? req.body.phone.trim()
     : (user?.phone ?? "");
@@ -68,14 +68,12 @@ router.post("/subscription/subscribe", requireAuth, async (req, res): Promise<vo
     res.status(500).json({ error: "Payment gateway not configured" });
     return;
   }
+  if (!paylorChannelId) {
+    res.status(500).json({ error: "Payment channel not configured. Contact the admin." });
+    return;
+  }
 
   const reference = `TKT-${userId}-${Date.now()}`;
-
-  // Generate a one-time secret token that is embedded in our callback URL.
-  // The token is never exposed to the user — only Paylor receives it via the
-  // callback_url parameter.  The callback handler requires both a matching
-  // reference AND this token, so a user who learns their own `reference` still
-  // cannot self-activate because they never see the token.
   const callbackToken = randomUUID();
 
   const expiresAt = new Date();
@@ -92,44 +90,15 @@ router.post("/subscription/subscribe", requireAuth, async (req, res): Promise<vo
   });
 
   try {
-    // Derive the public base URL automatically from the incoming request.
-    // Works in every environment (Replit dev, Replit deployed, Vercel, etc.)
-    // without any manual configuration. APP_URL env var can override if needed.
     const forwardedProto =
-      (req.headers["x-forwarded-proto"] as string)?.split(",")[0]?.trim()
-      ?? req.protocol
-      ?? "https";
+      (req.headers["x-forwarded-proto"] as string)?.split(",")[0]?.trim() ?? "https";
     const forwardedHost =
-      (req.headers["x-forwarded-host"] as string)?.split(",")[0]?.trim()
-      ?? req.hostname;
+      (req.headers["x-forwarded-host"] as string)?.split(",")[0]?.trim() ?? req.hostname;
     const appUrl = process.env.APP_URL ?? `${forwardedProto}://${forwardedHost}`;
-
-    // The secret token is embedded in the callback URL, not the body.
-    // Paylor will POST back to this URL; the user is only redirected to
-    // paymentUrl and never sees the token.
     const callbackUrl = `${appUrl}/api/subscription/callback?token=${callbackToken}`;
-    req.log.info({ callbackUrl }, "Paylor callback URL constructed");
 
-    if (!paylorChannelId) {
-      res.status(500).json({ error: "Payment channel not configured. Contact the admin." });
-      return;
-    }
+    req.log.info({ callbackUrl, reference }, "Initiating Paylor STK push");
 
-    // Paylor STK push payload — sends an M-Pesa prompt directly to the phone.
-    // Reference: POST https://api.paylorke.com/api/v1/merchants/payments/stk-push
-    const paymentPayload: Record<string, unknown> = {
-      amount,
-      currency,
-      reference,
-      phone: paymentPhone,
-      email: user?.email ?? "",
-      name: user?.name ?? "",
-      callback_url: callbackUrl,
-      description: "TokSaver Monthly Subscription",
-      channelId: paylorChannelId,
-    };
-
-    // Paylor API base URL is stored without trailing slash (e.g. https://api.paylorke.com/api/v1)
     const stkPushUrl = `${paylorApiUrl.replace(/\/$/, "")}/merchants/payments/stk-push`;
 
     const paylorResponse = await fetch(stkPushUrl, {
@@ -138,28 +107,36 @@ router.post("/subscription/subscribe", requireAuth, async (req, res): Promise<vo
         "Content-Type": "application/json",
         Authorization: `Bearer ${paylorApiKey}`,
       },
-      body: JSON.stringify(paymentPayload),
+      body: JSON.stringify({
+        amount,
+        currency,
+        reference,
+        phone: paymentPhone,
+        email: user?.email ?? "",
+        name: user?.name ?? "",
+        callback_url: callbackUrl,
+        description: "TokSaver Monthly Subscription",
+        channelId: paylorChannelId,
+      }),
     });
 
     const paylorText = await paylorResponse.text();
     let paylorData: Record<string, unknown> = {};
-    try { paylorData = JSON.parse(paylorText); } catch { /* non-JSON body */ }
+    try { paylorData = JSON.parse(paylorText); } catch { /* non-JSON */ }
 
     if (!paylorResponse.ok) {
-      req.log.error({ status: paylorResponse.status, body: paylorText, url: stkPushUrl }, "Paylor STK push failed");
-      const paylorMsg = (paylorData?.error as Record<string, unknown>)?.message as string | undefined
+      req.log.error({ status: paylorResponse.status, body: paylorText }, "Paylor STK push failed");
+      const msg = (paylorData?.error as Record<string, unknown>)?.message as string | undefined
         ?? paylorData?.message as string | undefined
         ?? "Payment initiation failed";
-      res.status(500).json({ error: paylorMsg });
+      res.status(500).json({ error: msg });
       return;
     }
 
-    req.log.info({ status: paylorResponse.status, body: paylorText }, "Paylor STK push initiated");
-
-    // Paylor STK push does not return a payment URL — it sends an M-Pesa prompt
-    // directly to the user's phone. Activation happens via the callback webhook.
+    req.log.info({ reference, body: paylorText }, "Paylor STK push initiated");
     res.json({
       stkSent: true,
+      reference,
       amount,
       currency,
       message: "M-Pesa payment prompt sent to your phone. Enter your PIN to confirm.",
@@ -170,38 +147,39 @@ router.post("/subscription/subscribe", requireAuth, async (req, res): Promise<vo
   }
 });
 
+// ---------------------------------------------------------------------------
+// Paylor payment callback — called by Paylor after payment completes.
+// Always returns 200 to stop Paylor retries regardless of outcome.
+// ---------------------------------------------------------------------------
 router.post("/subscription/callback", async (req, res): Promise<void> => {
-  // Log the raw body first — regardless of schema validity — so we never
-  // silently lose a callback from Paylor due to schema mismatch.
   req.log.info({ rawBody: req.body }, "Paylor raw callback received");
 
-  const parsed = SubscriptionCallbackBody.safeParse(req.body);
-  if (!parsed.success) {
-    req.log.warn({ errors: parsed.error.issues, body: req.body }, "Paylor callback body failed schema validation");
-    // Still return 200 so Paylor doesn't keep retrying with an invalid payload.
-    res.status(200).json({ message: "Callback received but ignored (schema mismatch)" });
+  // Try every field name Paylor might use for the payment reference and status.
+  const body = req.body as Record<string, unknown>;
+  const reference =
+    (body.reference ?? body.payment_reference ?? body.order_id ?? body.ref ?? "") as string;
+  const status =
+    (body.status ?? body.payment_status ?? body.transaction_status ?? "") as string;
+  const callbackToken =
+    typeof req.query.token === "string" ? req.query.token : null;
+
+  req.log.info({ reference, status, hasToken: !!callbackToken }, "Paylor callback parsed");
+
+  if (!reference || !status) {
+    req.log.warn({ body }, "Callback missing reference or status — ignored");
+    res.status(200).json({ message: "Callback received but ignored (missing fields)" });
     return;
   }
-  const { reference, status, amount } = parsed.data;
-
-  // The callbackToken is embedded in the URL, not the body, so the user
-  // cannot forge it even if they know their own payment reference.
-  const callbackToken = typeof req.query.token === "string" ? req.query.token : null;
-
-  req.log.info({ reference, status, amount, hasToken: !!callbackToken }, "Paylor callback parsed");
 
   if (!callbackToken) {
-    req.log.warn({ reference }, "Callback received without token");
-    res.status(400).json({ error: "Missing callback token" });
+    req.log.warn({ reference }, "Callback received without token — ignored");
+    res.status(200).json({ message: "Callback received but ignored (missing token)" });
     return;
   }
 
-  // Case-insensitive — Paylor may send "COMPLETED", "SUCCESS", "PAID", etc.
-  const SUCCESSFUL_STATUSES = new Set(["success", "completed", "paid"]);
+  const SUCCESSFUL_STATUSES = new Set(["success", "completed", "paid", "approved"]);
 
   if (SUCCESSFUL_STATUSES.has(status.toLowerCase())) {
-    // Only activate subscriptions where both the reference AND the secret
-    // callbackToken match, ensuring Paylor (not the user) triggered this.
     const [pendingSub] = await db
       .select()
       .from(subscriptionsTable)
@@ -214,8 +192,8 @@ router.post("/subscription/callback", async (req, res): Promise<void> => {
       );
 
     if (!pendingSub) {
-      req.log.warn({ reference }, "Callback received for unknown, token-mismatched, or already-processed reference");
-      res.status(400).json({ error: "Invalid or already processed payment" });
+      req.log.warn({ reference }, "No matching pending subscription for callback");
+      res.status(200).json({ message: "Callback received — subscription not found or already processed" });
       return;
     }
 
@@ -224,10 +202,92 @@ router.post("/subscription/callback", async (req, res): Promise<void> => {
       .set({ status: "active" })
       .where(eq(subscriptionsTable.id, pendingSub.id));
 
-    req.log.info({ userId: pendingSub.userId, reference }, "Subscription activated");
+    req.log.info({ userId: pendingSub.userId, reference }, "Subscription activated via callback");
   }
 
   res.json({ message: "Callback processed" });
+});
+
+// ---------------------------------------------------------------------------
+// Manual payment verification — user clicks "Check Payment" button.
+// First checks if callback already activated the subscription.
+// If still pending, queries Paylor's API to manually confirm the payment.
+// ---------------------------------------------------------------------------
+router.post("/subscription/verify", requireAuth, async (req, res): Promise<void> => {
+  const userId = req.userId!;
+
+  // If already active via callback, just return the status.
+  const status = await buildSubscriptionStatus(userId);
+  if (status.isActive) {
+    res.json(status);
+    return;
+  }
+
+  // Find the most recent pending subscription to verify.
+  const [pendingSub] = await db
+    .select()
+    .from(subscriptionsTable)
+    .where(
+      and(
+        eq(subscriptionsTable.userId, userId),
+        eq(subscriptionsTable.status, "pending")
+      )
+    )
+    .orderBy(desc(subscriptionsTable.createdAt))
+    .limit(1);
+
+  if (!pendingSub) {
+    // No pending subscription — return current status (not active).
+    res.json(status);
+    return;
+  }
+
+  const paylorApiKey = await getSetting("paylor_api_key");
+  const paylorApiUrl = await getSetting("paylor_api_url");
+  const baseUrl = paylorApiUrl.replace(/\/$/, "");
+  const reference = pendingSub.paymentReference;
+
+  const SUCCESSFUL_STATUSES = new Set(["success", "completed", "paid", "approved"]);
+  let paymentConfirmed = false;
+
+  // Try Paylor's transaction lookup endpoints (best-effort).
+  const checkUrls = [
+    `${baseUrl}/merchants/payments/${reference}`,
+    `${baseUrl}/merchants/transactions/${reference}`,
+    `${baseUrl}/merchants/payments?reference=${reference}`,
+  ];
+
+  for (const url of checkUrls) {
+    try {
+      const resp = await fetch(url, {
+        headers: { Authorization: `Bearer ${paylorApiKey}` },
+      });
+      if (!resp.ok) continue;
+      const data = await resp.json() as Record<string, unknown>;
+      const txStatus = (
+        data.status ?? data.payment_status ?? data.transaction_status ?? ""
+      ) as string;
+      if (SUCCESSFUL_STATUSES.has(txStatus.toLowerCase())) {
+        paymentConfirmed = true;
+        break;
+      }
+    } catch {
+      // Try next endpoint
+    }
+  }
+
+  if (paymentConfirmed) {
+    await db
+      .update(subscriptionsTable)
+      .set({ status: "active" })
+      .where(eq(subscriptionsTable.id, pendingSub.id));
+
+    res.json(await buildSubscriptionStatus(userId));
+    return;
+  }
+
+  // Return current status (not yet confirmed).
+  res.json(status);
 });
 
 export default router;

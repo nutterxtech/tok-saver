@@ -257,6 +257,26 @@ paths:
               schema:
                 $ref: "#/components/schemas/MessageResponse"
 
+  /subscription/verify:
+    post:
+      operationId: verifyPayment
+      tags: [subscription]
+      summary: Manually verify payment and activate subscription
+      description: Checks if the user's pending payment has been completed. If Paylor's callback missed, this manually confirms and activates the subscription.
+      responses:
+        "200":
+          description: Current subscription status after verification
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SubscriptionStatus"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /admin/users:
     get:
       operationId: adminGetUsers

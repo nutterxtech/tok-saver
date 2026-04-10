@@ -859,6 +859,88 @@ export const useSubscriptionCallback = <
 };
 
 /**
+ * Checks if the user's pending payment has been completed. If Paylor's callback missed, this manually confirms and activates the subscription.
+ * @summary Manually verify payment and activate subscription
+ */
+export const getVerifyPaymentUrl = () => {
+  return `/api/subscription/verify`;
+};
+
+export const verifyPayment = async (
+  options?: RequestInit,
+): Promise<SubscriptionStatus> => {
+  return customFetch<SubscriptionStatus>(getVerifyPaymentUrl(), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getVerifyPaymentMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof verifyPayment>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof verifyPayment>>,
+  TError,
+  void,
+  TContext
+> => {
+  const mutationKey = ["verifyPayment"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof verifyPayment>>,
+    void
+  > = () => {
+    return verifyPayment(requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type VerifyPaymentMutationResult = NonNullable<
+  Awaited<ReturnType<typeof verifyPayment>>
+>;
+
+export type VerifyPaymentMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Manually verify payment and activate subscription
+ */
+export const useVerifyPayment = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof verifyPayment>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof verifyPayment>>,
+  TError,
+  void,
+  TContext
+> => {
+  return useMutation(getVerifyPaymentMutationOptions(options));
+};
+
+/**
  * Returns all registered users with their subscription status. Requires admin key.
  * @summary List all users
  */

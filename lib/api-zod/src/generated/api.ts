@@ -164,6 +164,19 @@ export const SubscriptionCallbackResponse = zod.object({
 });
 
 /**
+ * Checks if the user's pending payment has been completed. If Paylor's callback missed, this manually confirms and activates the subscription.
+ * @summary Manually verify payment and activate subscription
+ */
+export const VerifyPaymentResponse = zod.object({
+  isActive: zod.boolean(),
+  expiresAt: zod.coerce.date().nullish(),
+  downloadsCount: zod.number(),
+  remainingFreeDownloads: zod.number(),
+  subscriptionPrice: zod.number(),
+  currency: zod.string(),
+});
+
+/**
  * Returns all registered users with their subscription status. Requires admin key.
  * @summary List all users
  */
