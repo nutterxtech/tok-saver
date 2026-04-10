@@ -47,3 +47,5 @@ Thumbs.db
 # Replit
 .cache/
 .local/
+api/_app.mjs
+api/_bundle/
