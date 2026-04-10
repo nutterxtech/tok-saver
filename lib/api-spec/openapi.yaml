@@ -3,13 +3,21 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: TikTok Downloader API specification
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: auth
+    description: Authentication operations
+  - name: download
+    description: Download operations
+  - name: subscription
+    description: Subscription operations
+  - name: admin
+    description: Admin operations
 paths:
   /healthz:
     get:
@@ -24,6 +32,335 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /auth/register:
+    post:
+      operationId: register
+      tags: [auth]
+      summary: Register a new user
+      description: Create a new user account with phone number for abuse prevention
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterBody"
+      responses:
+        "201":
+          description: User registered successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Email or phone already registered
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /auth/login:
+    post:
+      operationId: login
+      tags: [auth]
+      summary: Login
+      description: Authenticate with email and password
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginBody"
+      responses:
+        "200":
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+        "401":
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /auth/logout:
+    post:
+      operationId: logout
+      tags: [auth]
+      summary: Logout
+      description: End user session
+      responses:
+        "200":
+          description: Logged out successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
+  /auth/me:
+    get:
+      operationId: getMe
+      tags: [auth]
+      summary: Get current user
+      description: Returns the currently authenticated user
+      responses:
+        "200":
+          description: Current user info
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserResponse"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /download:
+    post:
+      operationId: downloadVideo
+      tags: [download]
+      summary: Download TikTok video
+      description: Download a TikTok video without watermark. Requires authentication. Free users get 1 download; after that, a subscription is required.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DownloadBody"
+      responses:
+        "200":
+          description: Download link or redirect
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DownloadResponse"
+        "400":
+          description: Invalid URL
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "402":
+          description: Payment required - free quota exhausted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaymentRequiredResponse"
+        "422":
+          description: Could not process the TikTok URL
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /downloads/history:
+    get:
+      operationId: getDownloadHistory
+      tags: [download]
+      summary: Get download history for current user
+      description: Returns the download history for the authenticated user
+      responses:
+        "200":
+          description: Download history
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/DownloadRecord"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /subscription/status:
+    get:
+      operationId: getSubscriptionStatus
+      tags: [subscription]
+      summary: Get subscription status
+      description: Returns the current user's subscription status
+      responses:
+        "200":
+          description: Subscription status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SubscriptionStatus"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /subscription/subscribe:
+    post:
+      operationId: initiateSubscription
+      tags: [subscription]
+      summary: Initiate subscription payment
+      description: Creates a Paylor payment session and returns the payment URL
+      responses:
+        "200":
+          description: Payment initiation details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaymentInitResponse"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /subscription/callback:
+    post:
+      operationId: subscriptionCallback
+      tags: [subscription]
+      summary: Payment callback from Paylor
+      description: Webhook/callback endpoint that Paylor calls after payment
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PaylorCallbackBody"
+      responses:
+        "200":
+          description: Callback processed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
+  /admin/users:
+    get:
+      operationId: adminGetUsers
+      tags: [admin]
+      summary: List all users
+      description: Returns all registered users with their subscription status. Requires admin key.
+      parameters:
+        - name: x-admin-key
+          in: header
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of users
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AdminUserRecord"
+        "401":
+          description: Invalid or missing admin key
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /admin/settings:
+    get:
+      operationId: adminGetSettings
+      tags: [admin]
+      summary: Get admin settings
+      description: Returns configurable admin settings (subscription price, Paylor keys). Requires admin key.
+      parameters:
+        - name: x-admin-key
+          in: header
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Current settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminSettings"
+        "401":
+          description: Invalid or missing admin key
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    put:
+      operationId: adminUpdateSettings
+      tags: [admin]
+      summary: Update admin settings
+      description: Update configurable admin settings. Requires admin key.
+      parameters:
+        - name: x-admin-key
+          in: header
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminSettingsUpdate"
+      responses:
+        "200":
+          description: Settings updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminSettings"
+        "401":
+          description: Invalid or missing admin key
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /admin/stats:
+    get:
+      operationId: adminGetStats
+      tags: [admin]
+      summary: Get admin dashboard stats
+      description: Returns overview stats for the admin dashboard. Requires admin key.
+      parameters:
+        - name: x-admin-key
+          in: header
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Dashboard stats
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminStats"
+        "401":
+          description: Invalid or missing admin key
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
 components:
   schemas:
     HealthStatus:
@@ -34,3 +371,280 @@ components:
       required:
         - status
 
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+      required:
+        - error
+
+    MessageResponse:
+      type: object
+      properties:
+        message:
+          type: string
+      required:
+        - message
+
+    RegisterBody:
+      type: object
+      properties:
+        name:
+          type: string
+        email:
+          type: string
+        phone:
+          type: string
+        password:
+          type: string
+      required:
+        - name
+        - email
+        - phone
+        - password
+
+    LoginBody:
+      type: object
+      properties:
+        email:
+          type: string
+        password:
+          type: string
+      required:
+        - email
+        - password
+
+    AuthResponse:
+      type: object
+      properties:
+        user:
+          $ref: "#/components/schemas/UserResponse"
+        token:
+          type: string
+      required:
+        - user
+        - token
+
+    UserResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        email:
+          type: string
+        phone:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        downloadsCount:
+          type: integer
+        hasActiveSubscription:
+          type: boolean
+      required:
+        - id
+        - name
+        - email
+        - phone
+        - createdAt
+        - downloadsCount
+        - hasActiveSubscription
+
+    DownloadBody:
+      type: object
+      properties:
+        url:
+          type: string
+      required:
+        - url
+
+    DownloadResponse:
+      type: object
+      properties:
+        downloadUrl:
+          type: string
+        title:
+          type: ["string", "null"]
+        thumbnailUrl:
+          type: ["string", "null"]
+        remainingFreeDownloads:
+          type: integer
+      required:
+        - downloadUrl
+        - remainingFreeDownloads
+
+    PaymentRequiredResponse:
+      type: object
+      properties:
+        error:
+          type: string
+        subscriptionPrice:
+          type: number
+        currency:
+          type: string
+      required:
+        - error
+        - subscriptionPrice
+        - currency
+
+    DownloadRecord:
+      type: object
+      properties:
+        id:
+          type: integer
+        url:
+          type: string
+        downloadedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - url
+        - downloadedAt
+
+    SubscriptionStatus:
+      type: object
+      properties:
+        isActive:
+          type: boolean
+        expiresAt:
+          type: ["string", "null"]
+          format: date-time
+        downloadsCount:
+          type: integer
+        remainingFreeDownloads:
+          type: integer
+        subscriptionPrice:
+          type: number
+        currency:
+          type: string
+      required:
+        - isActive
+        - downloadsCount
+        - remainingFreeDownloads
+        - subscriptionPrice
+        - currency
+
+    PaymentInitResponse:
+      type: object
+      properties:
+        paymentUrl:
+          type: string
+        reference:
+          type: string
+        amount:
+          type: number
+        currency:
+          type: string
+      required:
+        - paymentUrl
+        - reference
+        - amount
+        - currency
+
+    PaylorCallbackBody:
+      type: object
+      properties:
+        reference:
+          type: string
+        status:
+          type: string
+        amount:
+          type: number
+        phone:
+          type: ["string", "null"]
+      required:
+        - reference
+        - status
+        - amount
+
+    AdminUserRecord:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        email:
+          type: string
+        phone:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        downloadsCount:
+          type: integer
+        subscriptionStatus:
+          type: ["string", "null"]
+        subscriptionExpiresAt:
+          type: ["string", "null"]
+          format: date-time
+      required:
+        - id
+        - name
+        - email
+        - phone
+        - createdAt
+        - downloadsCount
+
+    AdminSettings:
+      type: object
+      properties:
+        subscriptionPrice:
+          type: number
+        currency:
+          type: string
+        paylorApiKey:
+          type: string
+        paylorApiUrl:
+          type: string
+        adminKey:
+          type: string
+        freeDownloadsPerUser:
+          type: integer
+      required:
+        - subscriptionPrice
+        - currency
+        - paylorApiKey
+        - paylorApiUrl
+        - adminKey
+        - freeDownloadsPerUser
+
+    AdminSettingsUpdate:
+      type: object
+      properties:
+        subscriptionPrice:
+          type: ["number", "null"]
+        currency:
+          type: ["string", "null"]
+        paylorApiKey:
+          type: ["string", "null"]
+        paylorApiUrl:
+          type: ["string", "null"]
+        adminKey:
+          type: ["string", "null"]
+        freeDownloadsPerUser:
+          type: ["integer", "null"]
+
+    AdminStats:
+      type: object
+      properties:
+        totalUsers:
+          type: integer
+        activeSubscribers:
+          type: integer
+        totalDownloads:
+          type: integer
+        revenueThisMonth:
+          type: number
+        newUsersThisMonth:
+          type: integer
+      required:
+        - totalUsers
+        - activeSubscribers
+        - totalDownloads
+        - revenueThisMonth
+        - newUsersThisMonth
