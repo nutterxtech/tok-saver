@@ -23,7 +23,7 @@ import {
 } from "@workspace/api-client-react";
 import { ApiError, getApiErrorMessage } from "@/lib/api-error";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Download, History, Settings, Users, BarChart3, Lock, CheckCircle2, AlertCircle, ShieldOff, ShieldCheck, Trash2, ArrowUpCircle, HardDriveDownload } from "lucide-react";
+import { Loader2, Download, History, Settings, Users, BarChart3, Lock, CheckCircle2, AlertCircle, ShieldOff, ShieldCheck, Trash2, ArrowUpCircle, HardDriveDownload, Copy, TriangleAlert, ExternalLink } from "lucide-react";
 import { useLocation } from "wouter";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -808,31 +808,115 @@ function AdminPanel({ adminKey, onLogout }: { adminKey: string, onLogout: () => 
                         </FormItem>
                     )} />
 
-                    <div className="pt-4 border-t border-border">
-                      <h3 className="text-lg font-medium mb-4">Paylor Integration</h3>
-                      <div className="space-y-4">
+                    <div className="pt-4 border-t border-border space-y-5">
+                      <div>
+                        <h3 className="text-lg font-semibold">Paylor Payment Gateway</h3>
+                        <p className="text-sm text-muted-foreground mt-1">
+                          Paylor processes M-Pesa payments. All three fields below are required for payments to work.
+                          Get these credentials from your{" "}
+                          <a href="https://paylor.webnixke.com" target="_blank" rel="noreferrer" className="text-primary underline underline-offset-2 inline-flex items-center gap-1">
+                            Paylor merchant dashboard <ExternalLink className="w-3 h-3" />
+                          </a>.
+                        </p>
+                      </div>
+
+                      {/* Warning banner when required fields are missing */}
+                      {(!settingsForm.watch("paylorApiKey") || !settingsForm.watch("paylorChannelId")) && (
+                        <div className="flex items-start gap-3 rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-400">
+                          <TriangleAlert className="w-4 h-4 shrink-0 mt-0.5" />
+                          <div>
+                            <p className="font-semibold">Payments are not configured</p>
+                            <p className="text-xs mt-0.5 text-amber-400/80">
+                              Fill in the API Key and Channel ID below so users can subscribe via M-Pesa.
+                            </p>
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="space-y-5">
                         <FormField control={settingsForm.control} name="paylorApiUrl" render={({ field }) => (
                           <FormItem>
-                            <FormLabel>API URL</FormLabel>
-                            <FormControl><Input {...field} data-testid="input-setting-paylor-url" /></FormControl>
+                            <FormLabel>Paylor API Base URL</FormLabel>
+                            <FormControl>
+                              <Input
+                                {...field}
+                                placeholder="https://paylor.webnixke.com/"
+                                data-testid="input-setting-paylor-url"
+                              />
+                            </FormControl>
+                            <FormDescription className="text-xs">
+                              The base URL of the Paylor API. Default is <code className="bg-muted px-1 rounded text-xs">https://paylor.webnixke.com/</code> — only change if Paylor gives you a different endpoint.
+                            </FormDescription>
                             <FormMessage />
                           </FormItem>
                         )} />
+
                         <FormField control={settingsForm.control} name="paylorApiKey" render={({ field }) => (
                           <FormItem>
-                            <FormLabel>API Key</FormLabel>
-                            <FormControl><Input type="password" {...field} data-testid="input-setting-paylor-key" /></FormControl>
+                            <FormLabel>
+                              API Secret Key <span className="text-destructive ml-1">*</span>
+                            </FormLabel>
+                            <FormControl>
+                              <Input
+                                type="password"
+                                {...field}
+                                placeholder="Paste your Paylor API key here"
+                                data-testid="input-setting-paylor-key"
+                              />
+                            </FormControl>
+                            <FormDescription className="text-xs">
+                              Found in your Paylor dashboard under <strong>Settings → API Keys</strong>. This is sent as a Bearer token with every payment request.
+                            </FormDescription>
                             <FormMessage />
                           </FormItem>
                         )} />
+
                         <FormField control={settingsForm.control} name="paylorChannelId" render={({ field }) => (
                           <FormItem>
-                            <FormLabel>Channel ID</FormLabel>
-                            <FormControl><Input {...field} placeholder="e.g. PAYL-XJ7K2P" data-testid="input-setting-paylor-channel" /></FormControl>
-                            <FormDescription className="text-xs text-muted-foreground mt-1">Your Paylor merchant channel ID (found in your Paylor dashboard).</FormDescription>
+                            <FormLabel>
+                              Channel ID <span className="text-destructive ml-1">*</span>
+                            </FormLabel>
+                            <FormControl>
+                              <Input
+                                {...field}
+                                placeholder="e.g. PAYL-XJ7K2P"
+                                data-testid="input-setting-paylor-channel"
+                              />
+                            </FormControl>
+                            <FormDescription className="text-xs">
+                              Your merchant channel ID from the Paylor dashboard under <strong>Channels</strong>. This tells Paylor which M-Pesa till/paybill to route payments to.
+                            </FormDescription>
                             <FormMessage />
                           </FormItem>
                         )} />
+
+                        {/* Callback URL display — admin must whitelist this in Paylor */}
+                        <div className="rounded-lg border border-border bg-muted/40 p-4 space-y-2">
+                          <p className="text-sm font-medium">Callback URL (Webhook)</p>
+                          <p className="text-xs text-muted-foreground">
+                            Paylor will POST to this URL after a payment succeeds. Make sure <strong>APP_URL</strong> is set in your server environment variables, then copy this URL into your Paylor dashboard under <strong>Webhooks / Callback URL</strong>.
+                          </p>
+                          <div className="flex items-center gap-2 mt-2">
+                            <code className="flex-1 text-xs bg-background border border-border rounded px-3 py-2 text-muted-foreground select-all break-all">
+                              {`{APP_URL}/api/subscription/callback?token=<auto-generated>`}
+                            </code>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              className="shrink-0"
+                              onClick={() => {
+                                navigator.clipboard.writeText(`/api/subscription/callback`);
+                                toast({ title: "Copied", description: "Callback path copied to clipboard" });
+                              }}
+                            >
+                              <Copy className="w-3.5 h-3.5" />
+                            </Button>
+                          </div>
+                          <p className="text-xs text-muted-foreground">
+                            Note: The <code className="bg-muted px-1 rounded">?token=</code> part is unique per payment and is added automatically — you do not set it manually.
+                          </p>
+                        </div>
                       </div>
                     </div>
 
