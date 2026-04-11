@@ -414,6 +414,14 @@ function DownloadInterface() {
         document.body.removeChild(a);
         setTimeout(() => URL.revokeObjectURL(blobUrl), 10000);
         toast({ title: "Saved!", description: ext === "mp3" ? "Audio saved to your device." : "Video saved to your device." });
+      } else if (xhr.status === 415) {
+        // Proxy detected audio bytes for a video request; responseType is blob so read async
+        const errorBlob = xhr.response as Blob;
+        errorBlob.text().then((text) => {
+          let msg = "This video appears to contain only audio and cannot be saved as a video file.";
+          try { msg = (JSON.parse(text) as { error?: string }).error || msg; } catch { /* ignore */ }
+          toast({ variant: "destructive", title: "Audio-only content", description: msg });
+        });
       } else {
         toast({ variant: "destructive", title: "Save failed", description: "Could not download the file. Try again." });
       }

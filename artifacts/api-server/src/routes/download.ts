@@ -144,14 +144,25 @@ router.get("/download-proxy", requireAuth, async (req, res): Promise<void> => {
       return;
     }
 
-    // Derive content-type from the requested filename extension so browsers
-    // treat the file correctly regardless of what the upstream CDN header says.
     const fileExt = filename.split(".").pop()?.toLowerCase();
+    const upstreamType = (upstream.headers.get("content-type") || "").toLowerCase();
+
+    // If the CDN is serving audio bytes for a video (.mp4) request, reject it
+    // early — this is the root cause of "Save Video saves audio".
+    if (fileExt === "mp4" && (upstreamType.startsWith("audio/") || upstreamType === "application/octet-stream" && upstreamType.includes("mpeg"))) {
+      req.log.warn({ upstreamType, url: rawUrl.slice(0, 100) }, "Audio content-type returned for mp4 request — rejecting");
+      res.status(415).json({ error: "The video file appears to contain only audio. This TikTok may be a slideshow or audio post." });
+      return;
+    }
+
+    // Use exact MIME type based on extension; don't trust upstream headers
     const contentType =
       fileExt === "mp3" ? "audio/mpeg" :
       fileExt === "mp4" ? "video/mp4" :
-      upstream.headers.get("content-type") || "video/mp4";
+      upstreamType || "application/octet-stream";
     const contentLength = upstream.headers.get("content-length");
+
+    req.log.info({ fileExt, upstreamType, contentLength }, "Proxying file");
 
     res.setHeader("Content-Type", contentType);
     res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
