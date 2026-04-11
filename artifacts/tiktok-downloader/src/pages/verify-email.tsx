@@ -81,6 +81,7 @@ export default function VerifyEmail() {
     if (cooldown > 0) return;
     resendMutation.mutate(undefined, {
       onSuccess: () => {
+        setCode("");
         toast({ title: "Code resent", description: "Check your email for the new 6-digit code." });
         startCooldown();
       },
