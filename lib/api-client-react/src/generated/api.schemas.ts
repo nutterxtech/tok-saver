@@ -211,6 +211,7 @@ export interface AdminStats {
 
 export interface ForgotPasswordBody {
   email: string;
+  phone: string;
 }
 
 export interface VerifyResetCodeBody {

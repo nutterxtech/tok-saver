@@ -229,20 +229,30 @@ router.post("/user/change-password", requireAuth, async (req, res): Promise<void
 // ─── Password Reset ───────────────────────────────────────────────────────────
 
 router.post("/auth/forgot-password", async (req, res): Promise<void> => {
-  const { email } = req.body as { email?: string };
+  const { email, phone } = req.body as { email?: string; phone?: string };
   if (!email || typeof email !== "string") {
     res.status(400).json({ error: "Email is required" });
     return;
   }
+  if (!phone || typeof phone !== "string") {
+    res.status(400).json({ error: "Phone number is required" });
+    return;
+  }
 
   const [user] = await db
-    .select({ id: usersTable.id, name: usersTable.name })
+    .select({ id: usersTable.id, name: usersTable.name, phone: usersTable.phone })
     .from(usersTable)
     .where(eq(usersTable.email, email.toLowerCase().trim()));
 
   if (!user) {
-    // Return success regardless so we don't leak whether an email is registered
-    res.json({ message: "If that email is registered, a code has been sent." });
+    res.status(404).json({ error: "No account found with that email address." });
+    return;
+  }
+
+  // Normalise both phone numbers to digits only for comparison
+  const normalise = (p: string) => p.replace(/\D/g, "");
+  if (normalise(user.phone) !== normalise(phone)) {
+    res.status(400).json({ error: "The phone number does not match our records." });
     return;
   }
 
@@ -256,7 +266,7 @@ router.post("/auth/forgot-password", async (req, res): Promise<void> => {
 
   sendResetCodeEmail(user.name, email, code).catch(() => {});
 
-  res.json({ message: "If that email is registered, a code has been sent." });
+  res.json({ message: "Verification code sent to your email." });
 });
 
 router.post("/auth/verify-reset-code", async (req, res): Promise<void> => {
