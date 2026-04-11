@@ -2,18 +2,15 @@ import app from "./app";
 import { logger } from "./lib/logger";
 import { db, usersTable, downloadsTable, subscriptionsTable } from "@workspace/db";
 import { eq, and, gt, count } from "drizzle-orm";
-import { sendDailyReminderEmail } from "./lib/email";
+import { sendMorningReminderEmail, sendEveningReminderEmail } from "./lib/email";
 
 const rawPort = process.env["PORT"];
 
 if (!rawPort) {
-  throw new Error(
-    "PORT environment variable is required but was not provided.",
-  );
+  throw new Error("PORT environment variable is required but was not provided.");
 }
 
 const port = Number(rawPort);
-
 if (Number.isNaN(port) || port <= 0) {
   throw new Error(`Invalid PORT value: "${rawPort}"`);
 }
@@ -23,95 +20,95 @@ app.listen(port, (err) => {
     logger.error({ err }, "Error listening on port");
     process.exit(1);
   }
-
   logger.info({ port }, "Server listening");
-
-  startDailyEmailScheduler();
+  startEmailScheduler();
 });
 
-// ─── Daily Email Scheduler ───────────────────────────────────────────────────
-// Sends reminder emails once per day at 10:00 AM East Africa Time (UTC+3).
+// ─── Email Scheduler ──────────────────────────────────────────────────────────
+// Sends reminders twice a day (8 AM and 8 PM EAT) to non-Pro users.
 
-let lastDailySentDate = "";
+// Tracks the last date each slot was sent, e.g. { morning: "4/11/2026", evening: "" }
+const lastSent: Record<"morning" | "evening", string> = { morning: "", evening: "" };
 
-function getTodayEAT(): string {
+function todayEAT(): string {
   return new Date().toLocaleDateString("en-KE", { timeZone: "Africa/Nairobi" });
 }
 
-function getCurrentHourEAT(): number {
+function hourEAT(): number {
   return Number(
-    new Date().toLocaleString("en-KE", { timeZone: "Africa/Nairobi", hour: "numeric", hour12: false })
+    new Date().toLocaleString("en-KE", {
+      timeZone: "Africa/Nairobi",
+      hour: "numeric",
+      hour12: false,
+    })
   );
 }
 
-async function runDailyEmails() {
-  logger.info("Running daily email job");
-  try {
-    const now = new Date();
-    const freeLimit = 1;
+async function runReminderBatch(slot: "morning" | "evening"): Promise<void> {
+  logger.info({ slot }, "Starting reminder email batch");
+  const now = new Date();
+  const freeLimit = 1;
 
-    // Get all non-suspended users
-    const users = await db
-      .select({
-        id: usersTable.id,
-        name: usersTable.name,
-        email: usersTable.email,
-      })
-      .from(usersTable)
-      .where(eq(usersTable.suspended, false));
+  const users = await db
+    .select({ id: usersTable.id, name: usersTable.name, email: usersTable.email })
+    .from(usersTable)
+    .where(eq(usersTable.suspended, false));
 
-    logger.info({ count: users.length }, "Sending daily reminders");
+  logger.info({ slot, count: users.length }, "Sending reminder emails");
 
-    for (const user of users) {
-      try {
-        // Check active subscription
-        const [activeSub] = await db
-          .select({ id: subscriptionsTable.id })
-          .from(subscriptionsTable)
-          .where(
-            and(
-              eq(subscriptionsTable.userId, user.id),
-              eq(subscriptionsTable.status, "active"),
-              gt(subscriptionsTable.expiresAt, now)
-            )
-          );
+  for (const user of users) {
+    try {
+      const [activeSub] = await db
+        .select({ id: subscriptionsTable.id })
+        .from(subscriptionsTable)
+        .where(
+          and(
+            eq(subscriptionsTable.userId, user.id),
+            eq(subscriptionsTable.status, "active"),
+            gt(subscriptionsTable.expiresAt, now)
+          )
+        );
 
-        // Skip if user has an active subscription (they don't need a reminder)
-        if (activeSub) continue;
+      if (activeSub) continue; // Pro users don't need reminders
 
-        // Check how many downloads they've used
-        const [dlResult] = await db
-          .select({ count: count() })
-          .from(downloadsTable)
-          .where(eq(downloadsTable.userId, user.id));
+      const [dlResult] = await db
+        .select({ count: count() })
+        .from(downloadsTable)
+        .where(eq(downloadsTable.userId, user.id));
 
-        const usedDownloads = Number(dlResult?.count ?? 0);
-        const hasFreeDl = usedDownloads < freeLimit;
+      const hasFreeDl = Number(dlResult?.count ?? 0) < freeLimit;
 
-        await sendDailyReminderEmail(user.name, user.email, hasFreeDl);
-      } catch (userErr) {
-        logger.error({ userErr, userId: user.id }, "Error sending reminder to user");
+      if (slot === "morning") {
+        await sendMorningReminderEmail(user.name, user.email, hasFreeDl);
+      } else {
+        await sendEveningReminderEmail(user.name, user.email, hasFreeDl);
       }
+    } catch (err) {
+      logger.error({ err, userId: user.id, slot }, "Error sending reminder");
     }
-
-    logger.info("Daily email job complete");
-  } catch (err) {
-    logger.error({ err }, "Daily email job failed");
   }
+
+  logger.info({ slot }, "Reminder batch complete");
 }
 
-function startDailyEmailScheduler() {
-  // Check every 30 minutes if it's time to send the daily email
+function startEmailScheduler() {
+  // Check every 10 minutes — fires each slot once per day in their hour window
   setInterval(async () => {
-    const today = getTodayEAT();
-    const hour = getCurrentHourEAT();
+    const today = todayEAT();
+    const hour = hourEAT();
 
-    // Send at 10am EAT, only once per day
-    if (hour === 10 && lastDailySentDate !== today) {
-      lastDailySentDate = today;
-      await runDailyEmails();
+    // Morning window: 8 AM EAT
+    if (hour === 8 && lastSent.morning !== today) {
+      lastSent.morning = today;
+      await runReminderBatch("morning");
     }
-  }, 30 * 60 * 1000); // every 30 minutes
 
-  logger.info("Daily email scheduler started (sends at 10:00 AM EAT)");
+    // Evening window: 8 PM EAT
+    if (hour === 20 && lastSent.evening !== today) {
+      lastSent.evening = today;
+      await runReminderBatch("evening");
+    }
+  }, 10 * 60 * 1000); // every 10 minutes
+
+  logger.info("Email scheduler started (8:00 AM and 8:00 PM EAT)");
 }
