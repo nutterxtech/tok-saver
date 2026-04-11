@@ -131,6 +131,11 @@ export function Layout({ children }: { children: React.ReactNode }) {
           Support:{" "}
           <a href="mailto:nutterxtech@gmail.com" className="text-primary hover:underline">nutterxtech@gmail.com</a>
         </p>
+        <div className="mt-3 flex items-center justify-center gap-4">
+          <Link href="/privacy" className="hover:text-primary transition-colors">Privacy Policy</Link>
+          <span>·</span>
+          <Link href="/terms" className="hover:text-primary transition-colors">Terms of Service</Link>
+        </div>
       </footer>
 
       {/* iOS Safari install instructions */}

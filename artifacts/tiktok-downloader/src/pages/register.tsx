@@ -143,6 +143,11 @@ export default function Register() {
               Sign in
             </Link>
           </div>
+          <div className="text-xs text-center text-muted-foreground/60 flex items-center justify-center gap-3">
+            <Link href="/privacy" className="hover:text-primary transition-colors">Privacy Policy</Link>
+            <span>·</span>
+            <Link href="/terms" className="hover:text-primary transition-colors">Terms of Service</Link>
+          </div>
         </CardFooter>
       </Card>
     </div>

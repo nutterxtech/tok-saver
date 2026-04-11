@@ -14,10 +14,12 @@ import Subscribe from "@/pages/subscribe";
 import Settings from "@/pages/settings";
 import ForgotPassword from "@/pages/forgot-password";
 import VerifyEmail from "@/pages/verify-email";
+import Privacy from "@/pages/privacy";
+import Terms from "@/pages/terms";
 
 const queryClient = new QueryClient();
 
-const PUBLIC_PATHS = ["/login", "/register", "/forgot-password"];
+const PUBLIC_PATHS = ["/login", "/register", "/forgot-password", "/privacy", "/terms"];
 
 function AppRoutes() {
   const { token, user, isLoading } = useAuth();
@@ -50,6 +52,8 @@ function AppRoutes() {
       <Route path="/subscribe" component={Subscribe} />
       <Route path="/settings" component={Settings} />
       <Route path="/forgot-password" component={ForgotPassword} />
+      <Route path="/privacy" component={Privacy} />
+      <Route path="/terms" component={Terms} />
       <Route component={NotFound} />
     </Switch>
   );
