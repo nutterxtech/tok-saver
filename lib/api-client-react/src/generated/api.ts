@@ -612,6 +612,81 @@ export function useGetDownloadHistory<
 }
 
 /**
+ * Deletes all download history for the authenticated user
+ * @summary Clear download history for current user
+ */
+export const getClearDownloadHistoryUrl = () => {
+  return `/api/downloads/history`;
+};
+
+export const clearDownloadHistory = async (
+  options?: RequestInit,
+): Promise<{ success: boolean }> => {
+  return customFetch<{ success: boolean }>(getClearDownloadHistoryUrl(), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getClearDownloadHistoryMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof clearDownloadHistory>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof clearDownloadHistory>>,
+  TError,
+  void,
+  TContext
+> => {
+  const { mutation: mutationOptions, request: requestOptions } = options ?? {};
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof clearDownloadHistory>>,
+    void
+  > = () => {
+    return clearDownloadHistory(requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ClearDownloadHistoryMutationResult = NonNullable<
+  Awaited<ReturnType<typeof clearDownloadHistory>>
+>;
+export type ClearDownloadHistoryMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Clear download history for current user
+ */
+export const useClearDownloadHistory = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof clearDownloadHistory>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof clearDownloadHistory>>,
+  TError,
+  void,
+  TContext
+> => {
+  const mutationOptions = getClearDownloadHistoryMutationOptions(options);
+  return useMutation(mutationOptions);
+};
+
+/**
  * Returns all subscription payment records for the authenticated user.
  * @summary Get current user's payment history
  */

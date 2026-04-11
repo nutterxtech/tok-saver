@@ -22,7 +22,9 @@ import {
   useAdminGetPayments,
   useAdminActivatePayment,
   useAdminRemovePayment,
-  useGetSubscriptionStatus
+  useGetSubscriptionStatus,
+  useClearDownloadHistory,
+  getGetDownloadHistoryQueryKey
 } from "@workspace/api-client-react";
 import { ApiError, getApiErrorMessage } from "@/lib/api-error";
 import { useToast } from "@/hooks/use-toast";
@@ -369,9 +371,21 @@ function DownloadInterface() {
   const [saveProgress, setSaveProgress] = useState<number | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
+  const queryClient = useQueryClient();
   const { data: subStatus, refetch: refetchSubStatus } = useGetSubscriptionStatus();
   const { data: history, refetch: refetchHistory } = useGetDownloadHistory();
   const downloadMutation = useDownloadVideo();
+  const clearHistoryMutation = useClearDownloadHistory({
+    mutation: {
+      onSuccess: () => {
+        queryClient.setQueryData(getGetDownloadHistoryQueryKey(), []);
+        toast({ title: "History cleared", description: "Your download history has been deleted." });
+      },
+      onError: () => {
+        toast({ variant: "destructive", title: "Failed to clear history", description: "Please try again." });
+      },
+    },
+  });
 
   function saveVideoToDevice(videoUrl: string, title?: string | null, sourceUrl?: string, ext: "mp4" | "mp3" = "mp4") {
     const token = localStorage.getItem("auth_token");
@@ -600,9 +614,40 @@ function DownloadInterface() {
 
       {/* Download History */}
       <div className="space-y-3">
-        <h3 className="text-lg font-bold flex items-center gap-2">
-          <History className="w-5 h-5 text-primary" /> Recent Downloads
-        </h3>
+        <div className="flex items-center justify-between">
+          <h3 className="text-lg font-bold flex items-center gap-2">
+            <History className="w-5 h-5 text-primary" /> Recent Downloads
+          </h3>
+          {history && history.length > 0 && (
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-destructive gap-1.5">
+                  <Trash2 className="w-3.5 h-3.5" /> Clear History
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Clear download history?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This will permanently delete all {history.length} record{history.length !== 1 ? "s" : ""} from your download history. This action cannot be undone.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction
+                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                    onClick={() => clearHistoryMutation.mutate()}
+                    disabled={clearHistoryMutation.isPending}
+                  >
+                    {clearHistoryMutation.isPending ? (
+                      <><Loader2 className="w-4 h-4 animate-spin mr-1" /> Clearing…</>
+                    ) : "Yes, clear history"}
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          )}
+        </div>
         {!history || history.length === 0 ? (
           <Card className="bg-card/30 border-dashed">
             <CardContent className="flex flex-col items-center justify-center py-12 text-muted-foreground">

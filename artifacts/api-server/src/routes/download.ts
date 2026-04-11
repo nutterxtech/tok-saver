@@ -94,6 +94,12 @@ router.get("/downloads/history", requireAuth, async (req, res): Promise<void> =>
   );
 });
 
+router.delete("/downloads/history", requireAuth, async (req, res): Promise<void> => {
+  const userId = req.userId!;
+  await db.delete(downloadsTable).where(eq(downloadsTable.userId, userId));
+  res.json({ success: true });
+});
+
 const ALLOWED_CDN_HOSTS = [
   "tikcdn.io",
   "tikwm.com",
