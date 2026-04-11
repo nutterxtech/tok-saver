@@ -8,40 +8,52 @@ import { getSetting, setSetting, getAllSettings } from "../lib/settings";
 const router: IRouter = Router();
 
 router.get("/admin/users", requireAdmin, async (req, res): Promise<void> => {
-  const users = await db.select().from(usersTable).orderBy(usersTable.createdAt);
   const now = new Date();
 
-  const result = await Promise.all(
-    users.map(async (user) => {
-      const [dlResult] = await db
-        .select({ count: count() })
-        .from(downloadsTable)
-        .where(eq(downloadsTable.userId, user.id));
+  // 3 bulk queries instead of N+1 per user
+  const [users, dlCounts, activeSubs] = await Promise.all([
+    db.select({
+      id: usersTable.id,
+      name: usersTable.name,
+      email: usersTable.email,
+      phone: usersTable.phone,
+      createdAt: usersTable.createdAt,
+      suspended: usersTable.suspended,
+    }).from(usersTable).orderBy(usersTable.createdAt),
 
-      const [activeSub] = await db
-        .select()
-        .from(subscriptionsTable)
-        .where(
-          and(
-            eq(subscriptionsTable.userId, user.id),
-            eq(subscriptionsTable.status, "active"),
-            gt(subscriptionsTable.expiresAt, now)
-          )
-        );
+    db.select({ userId: downloadsTable.userId, total: count() })
+      .from(downloadsTable)
+      .groupBy(downloadsTable.userId),
 
-      return {
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        phone: user.phone,
-        createdAt: user.createdAt,
-        downloadsCount: Number(dlResult?.count ?? 0),
-        isSuspended: user.suspended,
-        subscriptionStatus: activeSub?.status ?? null,
-        subscriptionExpiresAt: activeSub?.expiresAt ?? null,
-      };
-    })
-  );
+    db.select({
+      userId: subscriptionsTable.userId,
+      status: subscriptionsTable.status,
+      expiresAt: subscriptionsTable.expiresAt,
+    }).from(subscriptionsTable)
+      .where(and(
+        eq(subscriptionsTable.status, "active"),
+        gt(subscriptionsTable.expiresAt, now)
+      )),
+  ]);
+
+  const dlMap = new Map(dlCounts.map((r) => [r.userId, Number(r.total)]));
+  // Keep the latest active sub per user (last one wins when iterating)
+  const subMap = new Map(activeSubs.map((s) => [s.userId, s]));
+
+  const result = users.map((user) => {
+    const sub = subMap.get(user.id);
+    return {
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      phone: user.phone,
+      createdAt: user.createdAt,
+      downloadsCount: dlMap.get(user.id) ?? 0,
+      isSuspended: user.suspended,
+      subscriptionStatus: sub?.status ?? null,
+      subscriptionExpiresAt: sub?.expiresAt ?? null,
+    };
+  });
 
   res.json(result);
 });

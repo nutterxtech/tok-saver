@@ -710,7 +710,7 @@ function AdminPanel({ adminKey, onLogout }: { adminKey: string; onLogout: () => 
   const { data: stats, isLoading: statsLoading, error: statsError } = useAdminGetStats({
     ...reqOptions, query: { ...queryOptions, queryKey: ["adminStats", adminKey] }
   });
-  const { data: users, isLoading: usersLoading } = useAdminGetUsers({
+  const { data: users, isLoading: usersLoading, error: usersError } = useAdminGetUsers({
     ...reqOptions, query: { ...queryOptions, queryKey: ["adminUsers", adminKey] }
   });
   const { data: settings, isLoading: settingsLoading } = useAdminGetSettings({
@@ -863,6 +863,11 @@ function AdminPanel({ adminKey, onLogout }: { adminKey: string; onLogout: () => 
             <CardContent>
               {usersLoading ? (
                 <div className="p-12 text-center"><Loader2 className="w-8 h-8 animate-spin mx-auto text-primary" /></div>
+              ) : usersError ? (
+                <div className="p-12 text-center text-destructive text-sm">
+                  Failed to load users: {(usersError as Error)?.message ?? "Unknown error"}
+                  <Button variant="outline" size="sm" className="mt-3 mx-auto flex" onClick={refetchUsers}>Retry</Button>
+                </div>
               ) : (
                 <div className="rounded-lg border border-border overflow-x-auto">
                   <Table>
@@ -878,7 +883,9 @@ function AdminPanel({ adminKey, onLogout }: { adminKey: string; onLogout: () => 
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {users?.map((u) => (
+                      {!users?.length ? (
+                        <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-10">No users found.</TableCell></TableRow>
+                      ) : users.map((u) => (
                         <TableRow key={u.id} className={u.isSuspended ? "opacity-50" : ""}>
                           <TableCell className="font-medium whitespace-nowrap">{u.name}</TableCell>
                           <TableCell className="text-muted-foreground text-sm">{u.email}</TableCell>
@@ -942,11 +949,6 @@ function AdminPanel({ adminKey, onLogout }: { adminKey: string; onLogout: () => 
                           </TableCell>
                         </TableRow>
                       ))}
-                      {!users?.length && (
-                        <TableRow>
-                          <TableCell colSpan={7} className="text-center py-10 text-muted-foreground">No users found.</TableCell>
-                        </TableRow>
-                      )}
                     </TableBody>
                   </Table>
                 </div>
