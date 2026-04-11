@@ -45,13 +45,6 @@ export async function fetchTikTokVideo(url: string): Promise<TikTokInfo> {
 
   const videoData = data.data;
 
-  logger.info({
-    hdplay: videoData.hdplay ? "present" : "missing",
-    play: videoData.play ? "present" : "missing",
-    music: videoData.music ? "present" : "missing",
-    isSlideshow: !!videoData.images?.length,
-  }, "TikTok video data fields");
-
   // Photo slideshows have images[] but no playable video
   if (videoData.images?.length && !videoData.hdplay && !videoData.play) {
     throw new Error("This TikTok is a photo slideshow — only regular videos can be downloaded.");
@@ -62,13 +55,33 @@ export async function fetchTikTokVideo(url: string): Promise<TikTokInfo> {
     throw new Error("No download URL available for this video.");
   }
 
-  // If the video URL looks like an audio URL, prefer hdplay
   const musicUrl = videoData.music || videoData.music_info?.play || null;
+
+  // Helper: extract just the hostname for safe logging
+  function host(u?: string | null) {
+    if (!u) return null;
+    try { return new URL(u).hostname; } catch { return "invalid"; }
+  }
+
+  logger.info({
+    downloadUrlHost: host(downloadUrl),
+    musicUrlHost: host(musicUrl),
+    hdplay: videoData.hdplay ? "present" : "missing",
+    play: videoData.play ? "present" : "missing",
+    isSlideshow: !!videoData.images?.length,
+  }, "TikTok video data fields");
 
   // Guard: if video URL is the same as music URL, the API gave us audio instead of video
   if (downloadUrl === musicUrl) {
-    logger.warn({ downloadUrl }, "downloadUrl same as musicUrl — possible slideshow or API issue");
+    logger.warn({ downloadUrlHost: host(downloadUrl) }, "downloadUrl same as musicUrl — audio-only or slideshow");
     throw new Error("Could not retrieve a video file for this TikTok. It may be a slideshow or audio-only post.");
+  }
+
+  // Guard: if the video CDN hostname looks like a music CDN, reject it
+  const dlHost = host(downloadUrl) ?? "";
+  if (dlHost.includes("music") || dlHost.includes("-ies-")) {
+    logger.warn({ downloadUrlHost: dlHost }, "downloadUrl points to music CDN — rejecting as audio");
+    throw new Error("This TikTok appears to be audio-only or a slideshow and cannot be downloaded as video.");
   }
 
   return {
