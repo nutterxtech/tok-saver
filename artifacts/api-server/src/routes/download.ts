@@ -1,5 +1,5 @@
 import { Router, type IRouter, type Request, type Response } from "express";
-import { db, downloadsTable, subscriptionsTable } from "@workspace/db";
+import { db, downloadsTable, subscriptionsTable, usersTable } from "@workspace/db";
 import { eq, and, gt, count, desc } from "drizzle-orm";
 import { requireAuth } from "../middlewares/requireAuth";
 import { DownloadVideoBody } from "@workspace/api-zod";
@@ -23,6 +23,17 @@ router.post("/download", requireAuth, async (req, res): Promise<void> => {
   }
 
   const userId = req.userId!;
+
+  const [currentUser] = await db
+    .select({ emailVerified: usersTable.emailVerified })
+    .from(usersTable)
+    .where(eq(usersTable.id, userId));
+
+  if (!currentUser?.emailVerified) {
+    res.status(403).json({ error: "Please verify your email address before downloading." });
+    return;
+  }
+
   const now = new Date();
 
   const [activeSub] = await db

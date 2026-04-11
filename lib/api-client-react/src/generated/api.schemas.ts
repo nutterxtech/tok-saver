@@ -37,6 +37,16 @@ export interface UserResponse {
   createdAt: string;
   downloadsCount: number;
   hasActiveSubscription: boolean;
+  emailVerified: boolean;
+}
+
+export interface VerifyEmailBody {
+  code: string;
+}
+
+export interface ResendVerificationBody {
+  /** no fields required — uses the authenticated user's email */
+  _unused?: never;
 }
 
 export interface AuthResponse {

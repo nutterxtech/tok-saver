@@ -1,8 +1,8 @@
 import app from "./app";
 import { logger } from "./lib/logger";
 import { db, usersTable, downloadsTable, subscriptionsTable } from "@workspace/db";
-import { eq, and, gt, count } from "drizzle-orm";
-import { sendMorningReminderEmail, sendEveningReminderEmail } from "./lib/email";
+import { eq, and, gt, lt, gte, count } from "drizzle-orm";
+import { sendMorningReminderEmail, sendEveningReminderEmail, sendSubscriptionExpiredEmail } from "./lib/email";
 
 const rawPort = process.env["PORT"];
 
@@ -104,6 +104,43 @@ async function runReminderBatch(slot: "morning" | "evening"): Promise<void> {
   logger.info({ slot, sentCount }, "Reminder batch complete");
 }
 
+async function runExpiryBatch(): Promise<void> {
+  logger.info("Starting subscription expiry email batch");
+  const now = new Date();
+  const since = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+
+  const expiredSubs = await db
+    .select({
+      userId: subscriptionsTable.userId,
+      plan: subscriptionsTable.plan,
+      name: usersTable.name,
+      email: usersTable.email,
+      emailUnsubscribed: usersTable.emailUnsubscribed,
+    })
+    .from(subscriptionsTable)
+    .innerJoin(usersTable, eq(subscriptionsTable.userId, usersTable.id))
+    .where(
+      and(
+        eq(subscriptionsTable.status, "active"),
+        lt(subscriptionsTable.expiresAt, now),
+        gte(subscriptionsTable.expiresAt, since),
+        eq(usersTable.emailUnsubscribed, false)
+      )
+    );
+
+  logger.info({ count: expiredSubs.length }, "Sending subscription expiry emails");
+
+  for (const sub of expiredSubs) {
+    try {
+      await sendSubscriptionExpiredEmail(sub.userId, sub.name, sub.email, sub.plan);
+    } catch (err) {
+      logger.error({ err, userId: sub.userId }, "Error sending expiry email");
+    }
+  }
+
+  logger.info({ count: expiredSubs.length }, "Expiry email batch complete");
+}
+
 function startEmailScheduler() {
   // Check every 10 minutes — fires each slot once per day in their hour window
   setInterval(async () => {
@@ -114,6 +151,7 @@ function startEmailScheduler() {
     if (hour === 8 && lastSent.morning !== today) {
       lastSent.morning = today;
       await runReminderBatch("morning");
+      await runExpiryBatch();
     }
 
     // Evening window: 8 PM EAT

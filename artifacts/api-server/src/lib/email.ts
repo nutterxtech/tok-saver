@@ -260,6 +260,178 @@ export async function sendResetCodeEmail(
   }
 }
 
+// ─── Email Verification OTP ───────────────────────────────────────────────────
+
+export async function sendVerificationCodeEmail(
+  name: string,
+  email: string,
+  code: string
+): Promise<void> {
+  const transporter = getTransporter();
+  if (!transporter) return;
+
+  const firstName = name.split(" ")[0];
+
+  const body = `
+    <h2 style="margin:0 0 6px;font-size:22px;font-weight:800;color:#111;">Verify your email</h2>
+    <p style="margin:0 0 20px;font-size:14px;color:#888;">Hi ${firstName}, thanks for signing up. Enter the code below to confirm your email address.</p>
+
+    ${divider()}
+
+    <p style="margin:0 0 16px;color:#333;">
+      Your verification code — expires in <strong>15 minutes</strong>:
+    </p>
+
+    <div style="text-align:center;margin:28px 0;">
+      <div style="display:inline-block;background:#f4f4f5;border:2px solid #e8e8e8;border-radius:12px;padding:20px 40px;">
+        <span style="font-size:36px;font-weight:900;letter-spacing:0.35em;color:#111;font-family:'Courier New',monospace;">${code}</span>
+      </div>
+    </div>
+
+    ${divider()}
+
+    <p style="margin:0;font-size:13px;color:#aaa;">
+      If you did not create a TokSaver account, you can safely ignore this email.
+    </p>
+  `;
+
+  try {
+    await transporter.sendMail({
+      from: `"${APP_NAME}" <${SENDER}>`,
+      to: email,
+      subject: `${code} — verify your TokSaver email`,
+      html: layout(body),
+    });
+    logger.info({ email }, "Verification code email sent");
+  } catch (err) {
+    logger.error({ err, email }, "Failed to send verification code email");
+  }
+}
+
+// ─── Subscription Confirmed ───────────────────────────────────────────────────
+
+export async function sendSubscriptionConfirmedEmail(
+  name: string,
+  email: string,
+  plan: string,
+  expiresAt: Date
+): Promise<void> {
+  const transporter = getTransporter();
+  if (!transporter) return;
+
+  const firstName = name.split(" ")[0];
+  const planLabel = plan === "weekly" ? "Weekly Pro" : "Monthly Pro";
+  const price = plan === "weekly" ? "KSH 19" : "KSH 49";
+  const expiryStr = expiresAt.toLocaleDateString("en-KE", {
+    timeZone: "Africa/Nairobi",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+
+  const body = `
+    <h2 style="margin:0 0 6px;font-size:22px;font-weight:800;color:#111;">You're now a Pro subscriber!</h2>
+    <p style="margin:0 0 20px;font-size:14px;color:#888;">Hi ${firstName}, your M-Pesa payment was received. Your subscription is active.</p>
+
+    ${divider()}
+
+    <table width="100%" cellpadding="0" cellspacing="0"
+           style="background:#fafafa;border:1px solid #e8e8e8;border-radius:8px;margin:24px 0;padding:0;">
+      <tr>
+        <td style="padding:20px 24px;">
+          <table width="100%" cellpadding="0" cellspacing="0">
+            <tr>
+              <td style="padding:6px 0;font-size:14px;color:#555;">Plan</td>
+              <td style="padding:6px 0;font-size:14px;font-weight:700;color:#111;text-align:right;">${planLabel}</td>
+            </tr>
+            <tr>
+              <td style="padding:6px 0;font-size:14px;color:#555;">Amount paid</td>
+              <td style="padding:6px 0;font-size:14px;font-weight:700;color:#111;text-align:right;">${price}</td>
+            </tr>
+            <tr>
+              <td style="padding:6px 0;font-size:14px;color:#555;">Valid until</td>
+              <td style="padding:6px 0;font-size:15px;font-weight:800;color:#FF1A81;text-align:right;">${expiryStr}</td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+
+    <p style="margin:0 0 14px;color:#333;">
+      You now have <strong style="color:#FF1A81;">unlimited downloads</strong> — no watermarks, no restrictions, until ${expiryStr}.
+    </p>
+
+    ${ctaButton("Start Downloading →", APP_URL)}
+
+    ${divider()}
+
+    <p style="margin:0;font-size:13px;color:#aaa;">Questions? Reply to this email — we respond quickly.</p>
+  `;
+
+  try {
+    await transporter.sendMail({
+      from: `"${APP_NAME}" <${SENDER}>`,
+      to: email,
+      subject: `Subscription confirmed — Pro access until ${expiryStr}`,
+      html: layout(body),
+    });
+    logger.info({ email, plan, expiresAt }, "Subscription confirmed email sent");
+  } catch (err) {
+    logger.error({ err, email }, "Failed to send subscription confirmed email");
+  }
+}
+
+// ─── Subscription Expired ─────────────────────────────────────────────────────
+
+export async function sendSubscriptionExpiredEmail(
+  userId: number,
+  name: string,
+  email: string,
+  plan: string
+): Promise<void> {
+  const transporter = getTransporter();
+  if (!transporter) return;
+
+  const firstName = name.split(" ")[0];
+  const planLabel = plan === "weekly" ? "Weekly Pro" : "Monthly Pro";
+  const footer = unsubscribeFooter(userId);
+
+  const body = `
+    <h2 style="margin:0 0 6px;font-size:22px;font-weight:800;color:#111;">Your subscription has ended</h2>
+    <p style="margin:0 0 20px;font-size:14px;color:#888;">Hi ${firstName}, your ${planLabel} plan has expired.</p>
+
+    ${divider()}
+
+    <p style="margin:0 0 14px;color:#333;">
+      We hope you enjoyed unlimited watermark-free downloads. Renew today to keep the access going — it only takes a minute.
+    </p>
+
+    ${pricingBox()}
+
+    ${ctaButton("Renew My Subscription →", APP_URL)}
+
+    ${divider()}
+
+    <p style="margin:0;font-size:13px;color:#aaa;">Questions about your plan? Just reply to this email.</p>
+  `;
+
+  try {
+    await transporter.sendMail({
+      from: `"${APP_NAME}" <${SENDER}>`,
+      to: email,
+      subject: `Your TokSaver Pro plan has expired — renew to keep downloading`,
+      headers: {
+        "List-Unsubscribe": `<${buildUnsubscribeUrl(userId)}>, <mailto:${SENDER}?subject=unsubscribe>`,
+        "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
+      },
+      html: layout(body, footer),
+    });
+    logger.info({ email, plan }, "Subscription expired email sent");
+  } catch (err) {
+    logger.error({ err, email }, "Failed to send subscription expired email");
+  }
+}
+
 // ─── Morning Reminder (8 AM EAT) ─────────────────────────────────────────────
 
 export async function sendMorningReminderEmail(

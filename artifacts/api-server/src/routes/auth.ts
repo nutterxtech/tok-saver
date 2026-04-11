@@ -5,7 +5,7 @@ import { eq, and, gt, count, desc } from "drizzle-orm";
 import { signToken } from "../lib/auth";
 import { requireAuth } from "../middlewares/requireAuth";
 import { RegisterBody, LoginBody } from "@workspace/api-zod";
-import { sendWelcomeEmail, sendResetCodeEmail, verifyUnsubscribeToken } from "../lib/email";
+import { sendWelcomeEmail, sendResetCodeEmail, sendVerificationCodeEmail, verifyUnsubscribeToken } from "../lib/email";
 import { logger } from "../lib/logger";
 
 const router: IRouter = Router();
@@ -37,15 +37,28 @@ router.post("/auth/register", async (req, res): Promise<void> => {
   }
 
   const passwordHash = await bcrypt.hash(password, 12);
+
+  const verificationCode = String(Math.floor(100000 + Math.random() * 900000));
+  const verificationCodeExpiresAt = new Date(Date.now() + 15 * 60 * 1000);
+
   const [user] = await db
     .insert(usersTable)
-    .values({ name, email, phone, passwordHash })
+    .values({
+      name,
+      email,
+      phone,
+      passwordHash,
+      emailVerificationCode: verificationCode,
+      emailVerificationCodeExpiresAt: verificationCodeExpiresAt,
+    })
     .returning();
 
   const token = signToken({ userId: user.id, email: user.email });
 
-  // Fire-and-forget: send welcome email without blocking the response
   sendWelcomeEmail(user.name, user.email).catch((e) => logger.error({ err: e }, "Failed to send welcome email"));
+  sendVerificationCodeEmail(user.name, user.email, verificationCode).catch((e) =>
+    logger.error({ err: e }, "Failed to send verification code email")
+  );
 
   res.status(201).json({
     user: {
@@ -56,6 +69,7 @@ router.post("/auth/register", async (req, res): Promise<void> => {
       createdAt: user.createdAt,
       downloadsCount: 0,
       hasActiveSubscription: false,
+      emailVerified: false,
     },
     token,
   });
@@ -112,6 +126,7 @@ router.post("/auth/login", async (req, res): Promise<void> => {
       createdAt: user.createdAt,
       downloadsCount: Number(downloadsResult?.count ?? 0),
       hasActiveSubscription: !!activeSub,
+      emailVerified: user.emailVerified,
     },
     token,
   });
@@ -164,7 +179,88 @@ router.get("/auth/me", requireAuth, async (req, res): Promise<void> => {
     createdAt: user.createdAt,
     downloadsCount: Number(downloadsResult?.count ?? 0),
     hasActiveSubscription: !!activeSub,
+    emailVerified: user.emailVerified,
   });
+});
+
+router.post("/auth/verify-email", requireAuth, async (req, res): Promise<void> => {
+  const { code } = req.body ?? {};
+  if (!code || typeof code !== "string") {
+    res.status(400).json({ error: "Verification code is required" });
+    return;
+  }
+
+  const [user] = await db
+    .select()
+    .from(usersTable)
+    .where(eq(usersTable.id, req.userId!));
+
+  if (!user) {
+    res.status(404).json({ error: "User not found" });
+    return;
+  }
+
+  if (user.emailVerified) {
+    res.json({ message: "Email already verified" });
+    return;
+  }
+
+  if (
+    !user.emailVerificationCode ||
+    !user.emailVerificationCodeExpiresAt ||
+    user.emailVerificationCode !== code.trim() ||
+    new Date() > user.emailVerificationCodeExpiresAt
+  ) {
+    res.status(400).json({ error: "Invalid or expired verification code" });
+    return;
+  }
+
+  await db
+    .update(usersTable)
+    .set({
+      emailVerified: true,
+      emailVerificationCode: null,
+      emailVerificationCodeExpiresAt: null,
+    })
+    .where(eq(usersTable.id, user.id));
+
+  logger.info({ userId: user.id }, "Email verified");
+  res.json({ message: "Email verified successfully" });
+});
+
+router.post("/auth/resend-verification", requireAuth, async (req, res): Promise<void> => {
+  const [user] = await db
+    .select()
+    .from(usersTable)
+    .where(eq(usersTable.id, req.userId!));
+
+  if (!user) {
+    res.status(404).json({ error: "User not found" });
+    return;
+  }
+
+  if (user.emailVerified) {
+    res.status(400).json({ error: "Email is already verified" });
+    return;
+  }
+
+  const newCode = String(Math.floor(100000 + Math.random() * 900000));
+  const newExpiresAt = new Date(Date.now() + 15 * 60 * 1000);
+
+  await db
+    .update(usersTable)
+    .set({
+      emailVerificationCode: newCode,
+      emailVerificationCodeExpiresAt: newExpiresAt,
+    })
+    .where(eq(usersTable.id, user.id));
+
+  sendVerificationCodeEmail(user.name, user.email, newCode).catch((e) =>
+    logger.error({ err: e }, "Failed to resend verification code email")
+  );
+
+  logger.info({ userId: user.id }, "Verification code resent");
+  res.json({ message: "Verification code resent" });
 });
 
 router.get("/user/payments", requireAuth, async (req, res): Promise<void> => {

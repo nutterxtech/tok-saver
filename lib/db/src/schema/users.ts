@@ -16,6 +16,10 @@ export const usersTable = pgTable("users", {
   resetCodeExpiresAt: timestamp("reset_code_expires_at", { withTimezone: true }),
   // Email preferences
   emailUnsubscribed: boolean("email_unsubscribed").notNull().default(false),
+  // Email verification
+  emailVerified: boolean("email_verified").notNull().default(false),
+  emailVerificationCode: text("email_verification_code"),
+  emailVerificationCodeExpiresAt: timestamp("email_verification_code_expires_at", { withTimezone: true }),
 });
 
 export const insertUserSchema = createInsertSchema(usersTable).omit({

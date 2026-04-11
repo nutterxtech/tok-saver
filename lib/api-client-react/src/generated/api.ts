@@ -301,6 +301,85 @@ export const useLogin = <
 };
 
 /**
+ * Verify email with a 6-digit code sent on registration
+ * @summary Verify email address
+ */
+export const verifyEmail = async (
+  code: string,
+  options?: RequestInit,
+): Promise<MessageResponse> => {
+  return customFetch<MessageResponse>(`/api/auth/verify-email`, {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify({ code }),
+  });
+};
+
+export const useVerifyEmail = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof verifyEmail>>,
+    TError,
+    { code: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof verifyEmail>>,
+  TError,
+  { code: string },
+  TContext
+> => {
+  const { mutation: mutationOptions, request: requestOptions } = options ?? {};
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof verifyEmail>>,
+    { code: string }
+  > = ({ code }) => verifyEmail(code, requestOptions);
+  return useMutation({ mutationFn, ...mutationOptions });
+};
+
+/**
+ * Resend the email verification code (authenticated)
+ * @summary Resend verification code
+ */
+export const resendVerification = async (
+  options?: RequestInit,
+): Promise<MessageResponse> => {
+  return customFetch<MessageResponse>(`/api/auth/resend-verification`, {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const useResendVerification = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof resendVerification>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof resendVerification>>,
+  TError,
+  void,
+  TContext
+> => {
+  const { mutation: mutationOptions, request: requestOptions } = options ?? {};
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof resendVerification>>,
+    void
+  > = () => resendVerification(requestOptions);
+  return useMutation({ mutationFn, ...mutationOptions });
+};
+
+/**
  * End user session
  * @summary Logout
  */

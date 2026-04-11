@@ -4,6 +4,8 @@ import { eq, and, gt, count, sum, gte, desc } from "drizzle-orm";
 import { requireAdmin } from "../middlewares/requireAdmin";
 import { AdminUpdateSettingsBody } from "@workspace/api-zod";
 import { getSetting, setSetting, getAllSettings } from "../lib/settings";
+import { sendSubscriptionConfirmedEmail } from "../lib/email";
+import { logger } from "../lib/logger";
 
 const router: IRouter = Router();
 
@@ -206,6 +208,17 @@ router.post("/admin/payments/:id/activate", requireAdmin, async (req, res): Prom
     .where(eq(subscriptionsTable.id, subId));
 
   req.log.info({ subId, userId: sub.userId }, "Admin manually activated subscription");
+
+  const [user] = await db
+    .select({ name: usersTable.name, email: usersTable.email })
+    .from(usersTable)
+    .where(eq(usersTable.id, sub.userId));
+  if (user && sub.expiresAt) {
+    sendSubscriptionConfirmedEmail(user.name, user.email, sub.plan, sub.expiresAt).catch((e) =>
+      logger.error({ err: e }, "Failed to send subscription confirmed email (admin)")
+    );
+  }
+
   res.json({ message: "Subscription activated successfully" });
 });
 

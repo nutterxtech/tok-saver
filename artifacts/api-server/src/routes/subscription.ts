@@ -4,6 +4,8 @@ import { db, subscriptionsTable, downloadsTable, usersTable } from "@workspace/d
 import { eq, and, gt, count, desc } from "drizzle-orm";
 import { requireAuth } from "../middlewares/requireAuth";
 import { getSetting } from "../lib/settings";
+import { sendSubscriptionConfirmedEmail } from "../lib/email";
+import { logger } from "../lib/logger";
 
 const router: IRouter = Router();
 
@@ -303,6 +305,16 @@ router.post("/subscription/callback", async (req, res): Promise<void> => {
       .where(eq(subscriptionsTable.id, pendingSub.id));
 
     req.log.info({ userId: pendingSub.userId, paylorTxId, internalRef }, "Subscription activated via Paylor webhook");
+
+    const [user] = await db
+      .select({ name: usersTable.name, email: usersTable.email })
+      .from(usersTable)
+      .where(eq(usersTable.id, pendingSub.userId));
+    if (user) {
+      sendSubscriptionConfirmedEmail(user.name, user.email, pendingSub.plan, pendingSub.expiresAt!).catch((e) =>
+        logger.error({ err: e }, "Failed to send subscription confirmed email (webhook)")
+      );
+    }
   }
 
   res.status(200).json({ message: "ok" });
