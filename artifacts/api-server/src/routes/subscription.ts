@@ -381,6 +381,15 @@ router.post("/subscription/verify", requireAuth, async (req, res): Promise<void>
       if (PAID.has(txStatus.toLowerCase())) {
         await db.update(subscriptionsTable).set({ status: "active" }).where(eq(subscriptionsTable.id, pendingSub.id));
         req.log.error({ userId, txId, txStatus }, "Subscription activated via Paylor status check");
+        const [userRow] = await db
+          .select({ name: usersTable.name, email: usersTable.email })
+          .from(usersTable)
+          .where(eq(usersTable.id, pendingSub.userId));
+        if (userRow && pendingSub.expiresAt) {
+          sendSubscriptionConfirmedEmail(userRow.name, userRow.email, pendingSub.plan, pendingSub.expiresAt).catch((e) =>
+            logger.error({ err: e }, "Failed to send subscription confirmed email (status-check)")
+          );
+        }
         res.json(await buildSubscriptionStatus(userId));
         return;
       }

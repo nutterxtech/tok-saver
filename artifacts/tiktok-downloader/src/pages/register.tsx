@@ -43,9 +43,9 @@ export default function Register() {
           setAuthToken(response.token);
           toast({
             title: "Account created!",
-            description: "Enjoy your free download.",
+            description: "Check your email for a 6-digit verification code.",
           });
-          setLocation("/");
+          setLocation("/verify-email");
         },
         onError: (error: unknown) => {
           toast({
