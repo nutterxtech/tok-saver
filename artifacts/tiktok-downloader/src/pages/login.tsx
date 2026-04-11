@@ -1,6 +1,7 @@
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
+import { flushSync } from "react-dom";
 import { useLogin } from "@workspace/api-client-react";
 import { getApiErrorMessage } from "@/lib/api-error";
 import { useAuth } from "@/hooks/use-auth";
@@ -36,12 +37,16 @@ export default function Login() {
       { data: values },
       {
         onSuccess: (response) => {
-          setAuthToken(response.token);
+          flushSync(() => {
+            setAuthToken(response.token);
+          });
           toast({
             title: "Welcome back!",
             description: "You have successfully logged in.",
           });
-          setLocation("/");
+          // If emailVerified is false, AppRoutes guard redirects to /verify-email
+          const dest = response.user.emailVerified ? "/" : "/verify-email";
+          setLocation(dest);
         },
         onError: (error: unknown) => {
           toast({

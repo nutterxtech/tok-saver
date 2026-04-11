@@ -1,6 +1,7 @@
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
+import { flushSync } from "react-dom";
 import { useRegister } from "@workspace/api-client-react";
 import { getApiErrorMessage } from "@/lib/api-error";
 import { useAuth } from "@/hooks/use-auth";
@@ -40,7 +41,12 @@ export default function Register() {
       { data: values },
       {
         onSuccess: (response) => {
-          setAuthToken(response.token);
+          // flushSync ensures token state is committed before setLocation runs.
+          // Without it, AppRoutes re-renders with token=null and kicks the user
+          // to /login before the state update is processed.
+          flushSync(() => {
+            setAuthToken(response.token);
+          });
           toast({
             title: "Account created!",
             description: "Check your email for a 6-digit verification code.",
