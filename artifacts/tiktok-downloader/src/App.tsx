@@ -17,6 +17,9 @@ import VerifyEmail from "@/pages/verify-email";
 import Privacy from "@/pages/privacy";
 import Terms from "@/pages/terms";
 
+import AdminPanel from "@/pages/admin"; // <-- create this if you don't have it yet
+import { useEffect, useState } from "react";
+
 const queryClient = new QueryClient();
 
 const PUBLIC_PATHS = ["/login", "/register", "/forgot-password", "/privacy", "/terms"];
@@ -24,6 +27,13 @@ const PUBLIC_PATHS = ["/login", "/register", "/forgot-password", "/privacy", "/t
 function AppRoutes() {
   const { token, user, isLoading } = useAuth();
   const [location] = useLocation();
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  // Read query params
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    setIsAdmin(params.get("admin") === "true");
+  }, []);
 
   if (isLoading) {
     return (
@@ -31,6 +41,11 @@ function AppRoutes() {
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
+  }
+
+  // Render admin panel if ?admin=true
+  if (isAdmin) {
+    return <AdminPanel />;
   }
 
   const isPublic = PUBLIC_PATHS.some((p) => location === p || location.startsWith(p + "/"));
