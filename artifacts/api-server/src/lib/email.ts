@@ -237,8 +237,6 @@ export async function sendResetCodeEmail(
       </div>
     </div>
 
-    ${spamNote()}
-
     ${divider()}
 
     <p style="margin:0 0 8px;font-size:14px;color:#555;">

@@ -30,30 +30,31 @@ import {
   useResetPassword,
 } from "@workspace/api-client-react";
 
-// ─── Step 1: Enter email ──────────────────────────────────────────────────────
+// ─── Step 1: Confirm identity (email + phone) ─────────────────────────────────
 
 const identitySchema = z.object({
   email: z.string().email("Please enter a valid email address"),
+  phone: z.string().min(9, "Please enter a valid phone number"),
 });
 
-function StepEmail({ onNext }: { onNext: (email: string) => void }) {
+function StepEmail({ onNext }: { onNext: (email: string, phone: string) => void }) {
   const { toast } = useToast();
   const mutation = useForgotPassword();
   const form = useForm<z.infer<typeof identitySchema>>({
     resolver: zodResolver(identitySchema),
-    defaultValues: { email: "" },
+    defaultValues: { email: "", phone: "" },
   });
 
   function onSubmit(values: z.infer<typeof identitySchema>) {
     mutation.mutate(
       { data: values },
       {
-        onSuccess: () => onNext(values.email),
+        onSuccess: () => onNext(values.email, values.phone),
         onError: (err: unknown) =>
           toast({
             variant: "destructive",
-            title: "Error",
-            description: getApiErrorMessage(err, "Please try again."),
+            title: "Could not verify account",
+            description: getApiErrorMessage(err, "Please check your details and try again."),
           }),
       }
     );
@@ -64,7 +65,7 @@ function StepEmail({ onNext }: { onNext: (email: string) => void }) {
       <CardHeader className="space-y-1 text-center">
         <CardTitle className="text-3xl font-bold tracking-tight">Forgot password?</CardTitle>
         <CardDescription>
-          Enter your email and we'll send a 6-digit code to reset your password.
+          Confirm your account details and we'll send a 6-digit code to your email.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -81,6 +82,24 @@ function StepEmail({ onNext }: { onNext: (email: string) => void }) {
                       type="email"
                       placeholder="you@example.com"
                       data-testid="input-forgot-email"
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="phone"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Phone number</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="tel"
+                      placeholder="07XXXXXXXX"
+                      data-testid="input-forgot-phone"
                       {...field}
                     />
                   </FormControl>
@@ -123,10 +142,12 @@ const codeSchema = z.object({
 
 function StepCode({
   email,
+  phone,
   onNext,
   onBack,
 }: {
   email: string;
+  phone: string;
   onNext: (code: string) => void;
   onBack: () => void;
 }) {
@@ -156,7 +177,7 @@ function StepCode({
 
   function handleResend() {
     resendMutation.mutate(
-      { data: { email } },
+      { data: { email, phone } },
       {
         onSuccess: () => {
           toast({ title: "Code resent", description: "A new code has been sent to your email." });
@@ -386,14 +407,16 @@ type Step = "email" | "code" | "password" | "done";
 export default function ForgotPassword() {
   const [step, setStep] = useState<Step>("email");
   const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
   const [code, setCode] = useState("");
 
   return (
     <div className="flex-1 flex items-center justify-center p-4">
       {step === "email" && (
         <StepEmail
-          onNext={(e) => {
+          onNext={(e, p) => {
             setEmail(e);
+            setPhone(p);
             setStep("code");
           }}
         />
@@ -401,6 +424,7 @@ export default function ForgotPassword() {
       {step === "code" && (
         <StepCode
           email={email}
+          phone={phone}
           onNext={(c) => {
             setCode(c);
             setStep("password");
