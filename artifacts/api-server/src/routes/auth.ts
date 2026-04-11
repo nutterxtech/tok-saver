@@ -300,30 +300,20 @@ function unsubscribePage(title: string, message: string, success: boolean): stri
 // ─── Password Reset ───────────────────────────────────────────────────────────
 
 router.post("/auth/forgot-password", async (req, res): Promise<void> => {
-  const { email, phone } = req.body as { email?: string; phone?: string };
+  const { email } = req.body as { email?: string };
   if (!email || typeof email !== "string") {
     res.status(400).json({ error: "Email is required" });
     return;
   }
-  if (!phone || typeof phone !== "string") {
-    res.status(400).json({ error: "Phone number is required" });
-    return;
-  }
 
   const [user] = await db
-    .select({ id: usersTable.id, name: usersTable.name, phone: usersTable.phone })
+    .select({ id: usersTable.id, name: usersTable.name })
     .from(usersTable)
     .where(eq(usersTable.email, email.toLowerCase().trim()));
 
+  // Always respond with the same message to prevent email enumeration
   if (!user) {
-    res.status(404).json({ error: "No account found with that email address." });
-    return;
-  }
-
-  // Normalise both phone numbers to digits only for comparison
-  const normalise = (p: string) => p.replace(/\D/g, "");
-  if (normalise(user.phone) !== normalise(phone)) {
-    res.status(400).json({ error: "The phone number does not match our records." });
+    res.json({ message: "If an account with that email exists, a code has been sent." });
     return;
   }
 
@@ -337,7 +327,7 @@ router.post("/auth/forgot-password", async (req, res): Promise<void> => {
 
   sendResetCodeEmail(user.name, email, code).catch((e) => logger.error({ err: e }, "Failed to send reset code email"));
 
-  res.json({ message: "Verification code sent to your email." });
+  res.json({ message: "If an account with that email exists, a code has been sent." });
 });
 
 router.post("/auth/verify-reset-code", async (req, res): Promise<void> => {

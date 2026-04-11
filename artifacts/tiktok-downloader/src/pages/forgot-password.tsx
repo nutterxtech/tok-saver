@@ -30,11 +30,10 @@ import {
   useResetPassword,
 } from "@workspace/api-client-react";
 
-// ─── Step 1: Confirm identity (email + phone) ─────────────────────────────────
+// ─── Step 1: Enter email ──────────────────────────────────────────────────────
 
 const identitySchema = z.object({
   email: z.string().email("Please enter a valid email address"),
-  phone: z.string().min(9, "Please enter a valid phone number"),
 });
 
 function StepEmail({ onNext }: { onNext: (email: string) => void }) {
@@ -42,7 +41,7 @@ function StepEmail({ onNext }: { onNext: (email: string) => void }) {
   const mutation = useForgotPassword();
   const form = useForm<z.infer<typeof identitySchema>>({
     resolver: zodResolver(identitySchema),
-    defaultValues: { email: "", phone: "" },
+    defaultValues: { email: "" },
   });
 
   function onSubmit(values: z.infer<typeof identitySchema>) {
@@ -53,8 +52,8 @@ function StepEmail({ onNext }: { onNext: (email: string) => void }) {
         onError: (err: unknown) =>
           toast({
             variant: "destructive",
-            title: "Could not verify account",
-            description: getApiErrorMessage(err, "Please check your details and try again."),
+            title: "Error",
+            description: getApiErrorMessage(err, "Please try again."),
           }),
       }
     );
@@ -65,7 +64,7 @@ function StepEmail({ onNext }: { onNext: (email: string) => void }) {
       <CardHeader className="space-y-1 text-center">
         <CardTitle className="text-3xl font-bold tracking-tight">Forgot password?</CardTitle>
         <CardDescription>
-          Confirm your account details and we'll send a 6-digit code to your email.
+          Enter your email and we'll send a 6-digit code to reset your password.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -82,24 +81,6 @@ function StepEmail({ onNext }: { onNext: (email: string) => void }) {
                       type="email"
                       placeholder="you@example.com"
                       data-testid="input-forgot-email"
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="phone"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Phone number</FormLabel>
-                  <FormControl>
-                    <Input
-                      type="tel"
-                      placeholder="07XXXXXXXX"
-                      data-testid="input-forgot-phone"
                       {...field}
                     />
                   </FormControl>
@@ -151,6 +132,8 @@ function StepCode({
 }) {
   const { toast } = useToast();
   const mutation = useVerifyResetCode();
+  const resendMutation = useForgotPassword();
+  const [resendCooldown, setResendCooldown] = useState(0);
   const form = useForm<z.infer<typeof codeSchema>>({
     resolver: zodResolver(codeSchema),
     defaultValues: { code: "" },
@@ -167,6 +150,26 @@ function StepCode({
             title: "Invalid code",
             description: getApiErrorMessage(err, "The code is incorrect or has expired."),
           }),
+      }
+    );
+  }
+
+  function handleResend() {
+    resendMutation.mutate(
+      { data: { email } },
+      {
+        onSuccess: () => {
+          toast({ title: "Code resent", description: "A new code has been sent to your email." });
+          setResendCooldown(60);
+          const interval = setInterval(() => {
+            setResendCooldown((prev) => {
+              if (prev <= 1) { clearInterval(interval); return 0; }
+              return prev - 1;
+            });
+          }, 1000);
+        },
+        onError: () =>
+          toast({ variant: "destructive", title: "Error", description: "Could not resend code. Please try again." }),
       }
     );
   }
@@ -217,6 +220,20 @@ function StepCode({
             >
               {mutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Verify code
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full"
+              onClick={handleResend}
+              disabled={resendMutation.isPending || resendCooldown > 0}
+              data-testid="button-resend-code"
+            >
+              {resendMutation.isPending
+                ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Sending…</>
+                : resendCooldown > 0
+                ? `Resend code (${resendCooldown}s)`
+                : "Resend code"}
             </Button>
             <Button
               type="button"
